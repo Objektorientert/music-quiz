@@ -1,0 +1,2087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Musikkquiz</title>
+<style>
+  :root{
+    --face:#32323a; --face2:#3c3c46; --sunk:#26262c; --deep:#1a1a1f;
+    --hi:#787884; --lo:#111116;
+    --fg:#f4f4f6; --dim:#d2d2dc; --dim2:#b2b2bc;
+    --lcd:#0a1408; --grn:#3ef04a; --grn2:#1fa82a; --amb:#ffd34d; --red:#ff5a4d;
+    --blue:#5fc8ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;min-height:100%}
+  body{
+    background:#15151a;
+    background-image:
+      linear-gradient(180deg,#1d1d24 0%,#121216 100%),
+      repeating-linear-gradient(45deg,rgba(255,255,255,.012) 0 2px,transparent 2px 4px);
+    background-attachment:fixed;
+    color:var(--fg);
+    font:13px/1.5 Tahoma,Verdana,Geneva,ui-sans-serif,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:960px;margin:0 auto;padding:14px 14px 60px}
+  h1,h2,h3{margin:0}
+  a{color:var(--blue)}
+  .grow{flex:1}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .hidden{display:none !important}
+  .mono{font-family:"Lucida Console",Consolas,"DejaVu Sans Mono",Menlo,monospace}
+
+  /* ---------- bevels ---------- */
+  .up{box-shadow:inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo)}
+  .down{box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 var(--hi)}
+
+  /* ---------- window ---------- */
+  .win{background:var(--face);border:1px solid #0c0c10;border-radius:2px;margin-bottom:10px;
+       box-shadow:inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo), 0 2px 8px rgba(0,0,0,.5)}
+  .wintitle{display:flex;align-items:center;gap:8px;height:22px;padding:0 8px;
+    background:repeating-linear-gradient(180deg,#5a5a6e 0 1px,#3a3a4a 1px 2px);
+    border-bottom:1px solid var(--lo)}
+  .wintitle .t{font:700 10px/1 Tahoma,sans-serif;letter-spacing:.18em;text-transform:uppercase;
+    color:#e8e8f0;text-shadow:0 1px 0 #000;background:var(--face);padding:4px 7px;border-radius:1px;
+    box-shadow:inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo)}
+  .wintitle .r{margin-left:auto;display:flex;gap:4px;align-items:center}
+  .winbody{padding:12px}
+
+  /* ---------- buttons ---------- */
+  .btn{font:700 11px/1 Tahoma,sans-serif;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--fg);background:var(--face2);border:1px solid var(--lo);border-radius:2px;
+    padding:9px 13px;cursor:pointer;
+    box-shadow:inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo)}
+  .btn:hover{background:#464652}
+  .btn:active{box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 var(--hi);padding:10px 12px 8px 14px}
+  .btn:disabled{color:#acacb8;cursor:not-allowed;
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+  .btn:disabled:hover{background:var(--face2)}
+  .btn.tiny{padding:6px 9px;font-size:10px}
+  .btn.grn{color:#08210a;background:linear-gradient(180deg,#56f562,#25b431)}
+  .btn.grn:hover{background:linear-gradient(180deg,#6cff78,#2cc93a)}
+  .btn.grn:disabled{color:#acacb8;background:var(--sunk)}
+  .btn.red:hover{color:#ffb4ad;background:#4a2b2b}
+  .btn.big{font-size:15px;padding:15px 26px;letter-spacing:.14em}
+
+  /* ---------- lcd ---------- */
+  .lcd{background:var(--lcd);border-radius:2px;color:var(--grn);
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54, inset 0 0 14px rgba(62,240,74,.10)}
+  .lcdtxt{font-family:"Lucida Console",Consolas,monospace;letter-spacing:.06em}
+
+  /* ---------- player ---------- */
+  .player{padding:10px}
+  .pdisplay{display:flex;gap:9px;align-items:stretch;flex-wrap:wrap}
+  .ptime{flex:0 0 auto;padding:8px 14px;display:grid;place-items:center;min-width:118px}
+  .ptime .num{font:700 34px/1 "Lucida Console",Consolas,monospace;color:var(--grn);
+    text-shadow:0 0 12px rgba(62,240,74,.45);font-variant-numeric:tabular-nums}
+  .ptime .cap{font:700 8px/1 Tahoma,sans-serif;letter-spacing:.22em;color:var(--grn2);margin-top:5px}
+  .pvis{flex:1;min-width:200px;position:relative;padding:6px;cursor:pointer}
+  .pvis canvas{display:block;width:100%;height:62px;image-rendering:pixelated}
+  .pvis .vlabel{position:absolute;right:8px;top:7px;font:700 8px/1 Tahoma,sans-serif;
+    letter-spacing:.16em;color:rgba(62,240,74,.5)}
+  .marquee{margin-top:9px;padding:6px 10px;overflow:hidden;white-space:nowrap}
+  .marquee span{display:inline-block;font-family:"Lucida Console",Consolas,monospace;font-size:12px;
+    color:var(--grn);letter-spacing:.08em}
+  .marquee.run span{animation:slide 13s linear infinite}
+  @keyframes slide{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+  .tbarwrap{height:10px;margin-top:9px;background:var(--sunk);border-radius:2px;overflow:hidden;
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+  .tbarwrap > i{display:block;height:100%;width:0;
+    background:repeating-linear-gradient(90deg,var(--grn) 0 3px,transparent 3px 4px)}
+
+  /* ---------- segmented radio ---------- */
+  .optrow{display:flex;align-items:center;gap:10px;padding:7px 0;flex-wrap:wrap}
+  .optrow > .lb{font:700 10px/1 Tahoma,sans-serif;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--dim);width:104px;flex:0 0 auto}
+  .seg{display:inline-flex;background:var(--sunk);border-radius:2px;padding:2px;gap:2px;flex-wrap:wrap;
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+  .seg button{font:700 11px/1 Tahoma,sans-serif;color:var(--dim);background:transparent;border:0;
+    border-radius:1px;padding:8px 12px;cursor:pointer;letter-spacing:.05em;min-width:34px}
+  .seg button:hover{color:var(--fg);background:#3a3a44}
+  .seg button.on{color:#08210a;background:linear-gradient(180deg,#56f562,#25b431);
+    box-shadow:inset 1px 1px 0 rgba(255,255,255,.4), inset -1px -1px 0 rgba(0,0,0,.35)}
+
+  /* ---------- toggle ---------- */
+  .tg{display:inline-flex;align-items:center;gap:8px;background:var(--face2);border-radius:2px;
+    padding:8px 11px;cursor:pointer;user-select:none;
+    box-shadow:inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo)}
+  .tg:hover{background:#464652}
+  .tg .box{width:14px;height:14px;border-radius:1px;background:var(--sunk);flex:0 0 auto;
+    display:grid;place-items:center;font-size:11px;color:transparent;
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+  .tg.on .box{background:linear-gradient(180deg,#56f562,#25b431);color:#08210a}
+  .tg .nm{font:700 11px/1 Tahoma,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:var(--dim)}
+  .tg.on .nm{color:var(--fg)}
+  .catrow{display:flex;align-items:center;gap:10px;padding:6px 0;flex-wrap:wrap}
+  .catrow .tg{width:134px}
+  .catrow .pts{font:700 9px/1 Tahoma,sans-serif;letter-spacing:.14em;color:var(--dim2)}
+
+  /* ---------- stage select ---------- */
+  .stages{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px}
+  .stage{display:flex;align-items:center;gap:9px;text-align:left;cursor:pointer;padding:9px 10px;
+    background:var(--face2);border:0;border-radius:2px;color:var(--fg);
+    box-shadow:inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo)}
+  .stage:hover{background:#464652}
+  .stage.on{background:var(--lcd);box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+  .stage .em{font-size:17px;flex:0 0 auto}
+  .stage .nm{display:block;font:700 11px/1.25 Tahoma,sans-serif;letter-spacing:.06em;color:var(--fg)}
+  .stage.on .nm{color:var(--grn)}
+  .stage .ct{display:block;font-size:10px;color:var(--dim2);margin-top:3px;letter-spacing:.04em}
+  .stage.on .ct{color:var(--grn2)}
+
+  /* ---------- players ---------- */
+  .slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px}
+  .slot{display:flex;align-items:stretch;background:var(--sunk);border-radius:2px;overflow:hidden;
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+  .slot .bar{width:4px;flex:0 0 auto}
+  .slot .pn{display:grid;place-items:center;padding:0 8px;font:700 10px/1 Tahoma,sans-serif;
+    letter-spacing:.1em;color:var(--dim2);background:rgba(0,0,0,.25)}
+  .slot input{flex:1;background:transparent;border:0;color:var(--fg);font:700 13px/1 Tahoma,sans-serif;
+    padding:11px 9px;min-width:0}
+  .slot input:focus{outline:0}
+  .slot .x{background:transparent;border:0;color:var(--dim2);cursor:pointer;padding:0 10px;font-size:13px}
+  .slot .x:hover{color:var(--red)}
+
+  /* ---------- forms ---------- */
+  input[type=text],input[type=number],select,textarea{
+    font:13px/1.4 Tahoma,sans-serif;color:var(--fg);background:var(--sunk);border:0;border-radius:2px;
+    padding:9px 10px;width:100%;
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+  input:focus,select:focus,textarea:focus{outline:1px solid var(--grn2)}
+  textarea{min-height:180px;resize:vertical;font-family:"Lucida Console",Consolas,monospace;font-size:12px;line-height:1.7}
+  label.field{display:block;margin-bottom:12px}
+  label.field > span{display:block;font:700 10px/1 Tahoma,sans-serif;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+  .hint{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.6}
+  .grid{display:grid;gap:10px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}
+  code{font-family:"Lucida Console",Consolas,monospace;font-size:.93em;color:var(--grn)}
+  h3{font:700 10px/1 Tahoma,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+
+  /* ---------- nav ---------- */
+  .tabs{display:flex;gap:4px;flex-wrap:wrap}
+  .tabs button{font:700 10px/1 Tahoma,sans-serif;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--dim);background:var(--face2);border:0;border-radius:2px;padding:8px 11px;cursor:pointer;
+    box-shadow:inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo)}
+  .tabs button:hover{color:var(--fg);background:#464652}
+  .tabs button.on{color:var(--grn);background:var(--lcd);
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+
+  /* ---------- reveal ---------- */
+  .reveal{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .art{width:96px;height:96px;border-radius:2px;background:var(--sunk);object-fit:cover;flex:0 0 auto;
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+  .rtitle{font:700 24px/1.15 Tahoma,sans-serif;color:var(--fg);letter-spacing:-.005em}
+  .rartist{font:700 15px/1.3 Tahoma,sans-serif;color:var(--grn);margin-top:4px;letter-spacing:.03em}
+  .rmeta{font-size:12.5px;color:var(--dim);margin-top:6px}
+  .pill{display:inline-block;background:var(--lcd);border-radius:2px;padding:5px 10px;margin-top:9px;
+    font:700 10px/1 "Lucida Console",monospace;letter-spacing:.1em;color:var(--amb);
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+
+  /* ---------- tables ---------- */
+  table.sc{width:100%;border-collapse:collapse}
+  table.sc th{font:700 9.5px/1.3 Tahoma,sans-serif;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--dim);padding:8px 5px;text-align:center;border-bottom:1px solid var(--lo)}
+  table.sc th:first-child{text-align:left}
+  table.sc td{padding:6px 5px;text-align:center;border-bottom:1px solid #2a2a31;color:var(--fg)}
+  table.sc td:first-child{text-align:left;font-weight:700}
+  table.sc tr:last-child td{border-bottom:0}
+  .tick{width:42px;height:34px;border-radius:2px;border:0;background:var(--sunk);color:var(--dim2);
+    font-size:14px;cursor:pointer;box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+  .tick:hover{color:var(--grn)}
+  .tick.on{background:linear-gradient(180deg,#56f562,#25b431);color:#08210a;
+    box-shadow:inset 1px 1px 0 rgba(255,255,255,.4), inset -1px -1px 0 rgba(0,0,0,.35)}
+  .rowtot{font-family:"Lucida Console",monospace;font-weight:700;color:var(--amb);min-width:36px;display:inline-block}
+  .pname{display:flex;align-items:center;gap:8px}
+  .dot{width:9px;height:9px;border-radius:1px;flex:0 0 auto}
+
+  /* ---------- leaderboard ---------- */
+  .lb{display:flex;flex-direction:column;gap:4px}
+  .lb .e{display:flex;align-items:center;gap:10px;background:var(--sunk);border-radius:2px;padding:9px 11px;
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+  .lb .rank{font-family:"Lucida Console",monospace;font-weight:700;font-size:13px;color:var(--dim2);width:24px}
+  .lb .e.first{background:var(--lcd)}
+  .lb .e.first .rank{color:var(--grn)}
+  .lb .e.first b{color:var(--grn)}
+  .lb .pts{margin-left:auto;font:700 18px/1 "Lucida Console",monospace;color:var(--amb)}
+  .lb small{color:var(--dim2);font-size:11px}
+  .spend{color:var(--red);font-weight:700;font-size:11px}
+
+  /* ---------- hints ---------- */
+  .hintbox{background:var(--sunk);border-radius:2px;padding:11px;margin-top:12px;
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+  .hintline{background:var(--lcd);border-radius:2px;padding:9px 12px;margin-top:7px;text-align:left;
+    font-size:13px;color:#cfe8cf}
+  .hintline b{display:block;font:700 9px/1 Tahoma,sans-serif;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--amb);margin-bottom:5px}
+
+  .warn{background:#3a3320;border-radius:2px;padding:10px 12px;font-size:12.5px;color:var(--amb);
+    box-shadow:inset 1px 1px 0 var(--hi), inset -1px -1px 0 var(--lo)}
+  .warn.bad{background:#3d2422;color:#ff9d92}
+  .prog{height:8px;background:var(--sunk);border-radius:2px;overflow:hidden;
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+  .prog > i{display:block;height:100%;width:0;background:repeating-linear-gradient(90deg,var(--grn) 0 3px,transparent 3px 4px)}
+  .note{font:700 10px/1.4 Tahoma,sans-serif;letter-spacing:.1em;color:var(--dim2)}
+  .kbd{font:700 10px "Lucida Console",monospace;background:var(--sunk);border-radius:2px;padding:3px 6px;
+    color:var(--dim);box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+  table.imp td{text-align:left}
+  table.imp input[type=text]{padding:5px 7px;font-size:12px}
+  table.imp td:first-child{text-align:center;width:30px}
+  details{margin-top:10px}
+  summary{cursor:pointer;font:700 10px/1 Tahoma,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}
+  details pre{background:var(--lcd);color:var(--grn);border-radius:2px;padding:10px;overflow-x:auto;
+    font-size:11.5px;margin-top:9px;
+    box-shadow:inset 1px 1px 0 var(--lo), inset -1px -1px 0 #4a4a54}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="win">
+  <div class="wintitle"><span class="t">Musikkquiz</span>
+    <div class="r tabs">
+      <button data-view="setup" class="on">Game</button>
+      <button data-view="playlists">Playlists</button>
+      <button data-view="settings">Options</button>
+      <button data-view="scores">Scores</button>
+    </div>
+  </div>
+  <div class="winbody player">
+    <div class="pdisplay">
+      <div class="ptime lcd">
+        <div class="num lcdtxt" id="bigtime">--.-</div>
+        <div class="cap" id="timecap">Ready</div>
+      </div>
+      <div class="pvis lcd" id="visbox" title="Click to change visualiser">
+        <canvas id="vis"></canvas>
+        <span class="vlabel" id="vlabel">Analyzer</span>
+      </div>
+    </div>
+    <div class="marquee lcd" id="marq"><span id="marqtxt">Musikkquiz ··· pick a stage, add your teams, press start ···</span></div>
+    <div class="tbarwrap"><i id="tbar"></i></div>
+  </div>
+</div>
+
+<!-- ==================== SETUP ==================== -->
+<section id="v-setup">
+  <div class="win">
+    <div class="wintitle"><span class="t">Stage select</span><span class="r note" id="poolinfo"></span></div>
+    <div class="winbody"><div class="stages" id="plpick"></div></div>
+  </div>
+
+  <div class="win">
+    <div class="wintitle"><span class="t">Players</span>
+      <span class="r"><button class="btn tiny" id="addplayer">+ Add</button></span></div>
+    <div class="winbody"><div class="slots" id="players"></div></div>
+  </div>
+
+  <div class="win">
+    <div class="wintitle"><span class="t">Quick setup</span>
+      <span class="r"><button class="btn tiny" data-view="settings">All options</button></span></div>
+    <div class="winbody">
+      <div id="quickopts"></div>
+      <div style="border-top:1px solid var(--lo);box-shadow:0 1px 0 #4a4a54;margin:12px 0 11px"></div>
+      <h3 style="margin-bottom:9px">What do they have to guess?</h3>
+      <div id="cats"></div>
+      <div class="hint" id="catshint"></div>
+    </div>
+  </div>
+
+  <div class="win">
+    <div class="winbody" style="text-align:center">
+      <button class="btn grn big" id="start">▶ Start round</button>
+      <div class="hint" id="readyline" style="margin-top:11px"></div>
+      <div id="prep" class="hidden" style="max-width:400px;margin:13px auto 0">
+        <div class="prog"><i id="prepbar"></i></div>
+        <div class="hint" id="preptext">Loading…</div>
+      </div>
+      <div id="prepwarn" class="warn hidden" style="margin-top:12px;text-align:left"></div>
+      <div class="row" style="justify-content:center;margin-top:14px">
+        <button class="btn tiny" id="testsrc">Sound check</button>
+        <button class="btn tiny" data-view="scores">Highscores</button>
+        <button class="btn tiny" id="resethist">Reset played history</button>
+      </div>
+      <div class="note" id="testmsg" style="margin-top:10px"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== PLAY ==================== -->
+<section id="v-play" class="hidden">
+  <div class="win">
+    <div class="wintitle"><span class="t">Now playing</span>
+      <span class="r note" id="counter">1 / 20</span></div>
+    <div class="winbody" style="text-align:center">
+      <div class="row" style="justify-content:center">
+        <button class="btn grn big" id="playbtn">▶ Play clip</button>
+        <button class="btn big" id="revealbtn">Reveal</button>
+      </div>
+      <div class="row" style="justify-content:center;margin-top:9px">
+        <button class="btn tiny" id="replaybtn">↺ Replay</button>
+        <button class="btn tiny" id="skipbtn">Skip</button>
+        <button class="btn tiny red" id="quitbtn">End round</button>
+      </div>
+
+      <div id="hintzone" class="hidden">
+        <div class="hintbox">
+          <div class="row" style="justify-content:center">
+            <span class="note" style="margin-right:4px">Buy a hint</span>
+            <button class="btn tiny" data-h="year">📅 Year</button>
+            <button class="btn tiny" data-h="artist">🎤 Artist</button>
+            <button class="btn tiny" data-h="origin">🌍 Country</button>
+          </div>
+          <div id="hintpay" class="hidden" style="margin-top:10px">
+            <div class="note" style="margin-bottom:7px">Who pays <span id="hintcost"></span>?</div>
+            <div class="row" style="justify-content:center;gap:5px" id="paybtns"></div>
+          </div>
+          <div id="hintlist"></div>
+        </div>
+      </div>
+
+      <div class="hint" style="margin-top:13px">
+        <span class="kbd">Space</span> play · <span class="kbd">R</span> reveal · <span class="kbd">N</span> next
+      </div>
+    </div>
+  </div>
+
+  <div class="win hidden" id="revealcard">
+    <div class="wintitle"><span class="t">Answer</span></div>
+    <div class="winbody">
+      <div class="reveal">
+        <img class="art" id="art" alt="">
+        <div>
+          <div class="rtitle" id="rtitle"></div>
+          <div class="rartist" id="rartist"></div>
+          <div class="rmeta" id="rmeta"></div>
+          <div><span class="pill" id="acceptpill"></span></div>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--lo);box-shadow:0 1px 0 #4a4a54;margin:16px 0 13px"></div>
+      <h3 style="margin-bottom:9px">Mark the answers</h3>
+      <div style="overflow-x:auto"><table class="sc" id="sctable"></table></div>
+      <div class="row" style="margin-top:14px;justify-content:flex-end">
+        <button class="btn grn" id="nextbtn">Next ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="win">
+    <div class="wintitle"><span class="t">Score</span></div>
+    <div class="winbody"><div class="lb" id="livelb"></div></div>
+  </div>
+</section>
+
+<!-- ==================== RESULT ==================== -->
+<section id="v-result" class="hidden">
+  <div class="win">
+    <div class="wintitle"><span class="t">Round over</span></div>
+    <div class="winbody">
+      <div id="resulthead" style="font:700 22px/1.2 Tahoma,sans-serif;color:var(--grn);text-align:center"></div>
+      <div class="hint" id="resultsub" style="text-align:center;margin-bottom:15px"></div>
+      <div class="lb" id="resultlb"></div>
+      <div class="row" style="margin-top:15px;justify-content:center">
+        <button class="btn grn" id="againbtn">Play again</button>
+        <button class="btn" id="backbtn">Setup</button>
+        <button class="btn tiny" data-view="scores">Highscores</button>
+      </div>
+      <div class="note" id="savedmsg" style="text-align:center;margin-top:10px"></div>
+    </div>
+  </div>
+  <div class="win">
+    <div class="wintitle"><span class="t">Songs this round</span></div>
+    <div class="winbody" style="overflow-x:auto"><table class="sc" id="songlog"></table></div>
+  </div>
+</section>
+
+<!-- ==================== PLAYLISTS ==================== -->
+<section id="v-playlists" class="hidden">
+  <div class="win">
+    <div class="wintitle"><span class="t">Playlist editor</span>
+      <span class="r">
+        <button class="btn tiny" id="newpl">+ New</button>
+        <button class="btn tiny" id="exportpl">Export</button>
+        <button class="btn tiny" id="importpl">Import</button>
+        <button class="btn tiny red" id="resetpl">Reset</button>
+      </span></div>
+    <div class="winbody">
+      <label class="field"><span>Playlist</span><select id="pledit"></select></label>
+      <div class="grid g2">
+        <label class="field"><span>Name</span><input type="text" id="plname"></label>
+        <label class="field"><span>Emoji</span><input type="text" id="plemoji" maxlength="4"></label>
+      </div>
+      <label class="field"><span>Songs — Title ; Artist ; Year ; Country</span>
+        <textarea id="plsongs" spellcheck="false"></textarea></label>
+      <div class="hint">Separators <code>;</code> <code>|</code> <code>—</code> and tabs all work, so a spreadsheet paste lands correctly. Country is optional.</div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn grn" id="savepl">Save</button>
+        <button class="btn red" id="delpl">Delete</button>
+        <div class="grow"></div><span class="note" id="plmsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="win">
+    <div class="wintitle"><span class="t">Fetch songs</span></div>
+    <div class="winbody">
+      <div class="hint" style="margin-bottom:11px">
+        Pull tracks out of the music catalogue to top up a playlist — an artist, a band, a genre word, anything.
+        Everything arrives with a real release year you check before adding.
+      </div>
+      <div class="grid g3">
+        <label class="field" style="grid-column:span 2"><span>Search for</span>
+          <input type="text" id="fqterm" placeholder="Fleetwood Mac · disco · norsk pop"></label>
+        <label class="field"><span>Years</span>
+          <div class="row" style="gap:6px;flex-wrap:nowrap">
+            <input type="number" id="fqfrom" placeholder="1960" style="width:50%">
+            <input type="number" id="fqto" placeholder="1979" style="width:50%"></div></label>
+      </div>
+      <div class="row"><button class="btn grn" id="fqgo">Fetch</button>
+        <div class="grow"></div><span class="note" id="fqmsg"></span></div>
+    </div>
+  </div>
+
+  <div class="win">
+    <div class="wintitle"><span class="t">Import a song list</span></div>
+    <div class="winbody">
+      <div class="hint" style="margin-bottom:11px">
+        Paste one song per line — <code>Artist - Title</code> is ideal, but rough YouTube titles are cleaned up automatically.
+        Each line is looked up against iTunes and then Deezer to get a clean title, artist, release year and a playable clip.
+        No account, no API key.
+      </div>
+      <label class="field"><span>Song list</span>
+        <textarea id="imp" spellcheck="false" style="min-height:120px"
+          placeholder="Michael Jackson - Billie Jean&#10;a-ha - Take On Me (Official Video)&#10;Toto - Africa"></textarea></label>
+      <details>
+        <summary>▸ How to get the list out of a YouTube playlist</summary>
+        <div class="hint" style="margin-top:9px">
+          YouTube gives no way to read a playlist without a developer key, so grab the titles from the page instead.
+          Open the playlist in your browser, scroll to the bottom so every video has loaded, press
+          <span class="kbd">F12</span> → <b>Console</b>, paste this and hit enter. The song list is copied to your clipboard —
+          then paste it in the box above.
+        </div>
+        <pre>copy([...document.querySelectorAll('#video-title')]
+  .map(e =&gt; e.textContent.trim())
+  .filter(Boolean).join('\n'))</pre>
+      </details>
+      <div class="row" style="margin-top:11px"><button class="btn grn" id="impgo">Look up</button>
+        <div class="grow"></div><span class="note" id="impmsg"></span></div>
+    </div>
+  </div>
+
+  <div class="win hidden" id="impwrap">
+    <div class="wintitle"><span class="t">Review</span><span class="r note" id="impcount"></span></div>
+    <div class="winbody">
+      <div class="prog"><i id="impbar"></i></div>
+      <div style="overflow-x:auto;margin-top:10px;max-height:400px;overflow-y:auto">
+        <table class="sc imp" id="imptable"></table></div>
+      <div class="row" style="margin-top:12px">
+        <select id="impdest" style="max-width:240px"></select>
+        <button class="btn grn" id="impadd">Add checked</button>
+        <button class="btn" id="impcancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="win">
+    <div class="wintitle"><span class="t">Your own audio files</span></div>
+    <div class="winbody">
+      <div class="hint" style="margin-bottom:10px">
+        Names like <code>1983 - Michael Jackson - Billie Jean</code> or <code>Michael Jackson - Billie Jean (1983)</code>
+        are read automatically. File playlists last until you close the page.
+      </div>
+      <input type="file" id="filepick" accept="audio/*" multiple>
+      <div class="hint" id="filemsg"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== OPTIONS ==================== -->
+<section id="v-settings" class="hidden">
+  <div class="win">
+    <div class="wintitle"><span class="t">Round</span></div>
+    <div class="winbody" id="optround"></div>
+  </div>
+  <div class="win">
+    <div class="wintitle"><span class="t">Scoring</span></div>
+    <div class="winbody">
+      <h3 style="margin-bottom:9px">Categories</h3>
+      <div id="cats2"></div>
+      <div class="hint" style="margin-bottom:13px">Switch a category off and it disappears from the scoring grid. Leave only Artist on for a pure name-that-band round.</div>
+      <div id="optscore"></div>
+    </div>
+  </div>
+  <div class="win">
+    <div class="wintitle"><span class="t">Hints</span></div>
+    <div class="winbody">
+      <div class="hint" style="margin-bottom:11px">A team can buy a hint about the year, the artist or the country. It costs them points and the whole room hears it.</div>
+      <div id="opthints"></div>
+    </div>
+  </div>
+  <div class="win">
+    <div class="wintitle"><span class="t">Saved data</span></div>
+    <div class="winbody">
+      <div class="hint" style="margin-bottom:11px">
+        Highscores, playlists and options live in this browser and are still here next time you open the file.
+        Export a JSON backup to move them to another machine — or just to be safe.
+      </div>
+      <div class="row">
+        <button class="btn" id="exportall">Export backup</button>
+        <button class="btn" id="importall">Restore backup</button>
+        <div class="grow"></div>
+        <button class="btn tiny" id="clearcache">Clear clip cache</button>
+      </div>
+      <div class="note" id="datamsg" style="margin-top:10px"></div>
+      <div id="nostorage" class="warn bad hidden" style="margin-top:11px">
+        This browser is blocking local storage, so nothing is remembered when you close the page.
+        Use <b>Export backup</b> before you finish and <b>Restore backup</b> when you come back.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== SCORES ==================== -->
+<section id="v-scores" class="hidden">
+  <div class="win">
+    <div class="wintitle"><span class="t">Hall of fame</span>
+      <span class="r">
+        <button class="btn tiny" id="exporths">Export</button>
+        <button class="btn tiny" id="imporths">Import</button>
+        <button class="btn tiny red" id="clearhs">Clear</button>
+      </span></div>
+    <div class="winbody">
+      <h3 style="margin-bottom:9px">Best rounds · points per song</h3>
+      <div class="lb" id="hsbest"></div>
+      <h3 style="margin:17px 0 9px">History</h3>
+      <div style="overflow-x:auto"><table class="sc" id="hstable"></table></div>
+      <div class="note" id="hsmsg" style="margin-top:11px"></div>
+    </div>
+  </div>
+</section>
+
+<audio id="au" preload="none"></audio>
+</div>
+
+<script>
+"use strict";
+const BUILTIN = [
+  { id:"60s", name:"The 60s", emoji:"☮️", songs:[
+    ["Stand by Me","Ben E. King",1961,"USA"],
+    ["Twist and Shout","The Beatles",1963,"United Kingdom"],
+    ["The House of the Rising Sun","The Animals",1964,"United Kingdom"],
+    ["Dancing in the Street","Martha and the Vandellas",1964,"USA"],
+    ["California Dreamin'","The Mamas & the Papas",1965,"USA"],
+    ["(I Can't Get No) Satisfaction","The Rolling Stones",1965,"United Kingdom"],
+    ["My Generation","The Who",1965,"United Kingdom"],
+    ["Good Vibrations","The Beach Boys",1966,"USA"],
+    ["These Boots Are Made for Walkin'","Nancy Sinatra",1966,"USA"],
+    ["Respect","Aretha Franklin",1967,"USA"],
+    ["Purple Haze","Jimi Hendrix",1967,"USA"],
+    ["Sunshine of Your Love","Cream",1967,"United Kingdom"],
+    ["Light My Fire","The Doors",1967,"USA"],
+    ["A Whiter Shade of Pale","Procol Harum",1967,"United Kingdom"],
+    ["Brown Eyed Girl","Van Morrison",1967,"United Kingdom"],
+    ["I Heard It Through the Grapevine","Marvin Gaye",1968,"USA"],
+    ["Born to Be Wild","Steppenwolf",1968,"USA"],
+    ["Mrs. Robinson","Simon & Garfunkel",1968,"USA"],
+    ["Piece of My Heart","Big Brother and the Holding Company",1968,"USA"],
+    ["Bad Moon Rising","Creedence Clearwater Revival",1969,"USA"],
+    ["I Want to Hold Your Hand","The Beatles",1963,"United Kingdom"],
+    ["Green Onions","Booker T. & the M.G.'s",1962,"USA"],
+    ["You Really Got Me","The Kinks",1964,"United Kingdom"],
+    ["Paint It Black","The Rolling Stones",1966,"United Kingdom"],
+    ["Gimme Some Lovin'","The Spencer Davis Group",1966,"United Kingdom"],
+    ["For What It's Worth","Buffalo Springfield",1966,"USA"],
+    ["(Sittin' On) The Dock of the Bay","Otis Redding",1968,"USA"],
+    ["Space Oddity","David Bowie",1969,"United Kingdom"],
+    ["Fortunate Son","Creedence Clearwater Revival",1969,"USA"],
+    ["Suspicious Minds","Elvis Presley",1969,"USA"]
+  ]},
+  { id:"70s", name:"The 70s", emoji:"🕺", songs:[
+    ["Let's Stay Together","Al Green",1971,"USA"],
+    ["Imagine","John Lennon",1971,"United Kingdom"],
+    ["American Pie","Don McLean",1971,"USA"],
+    ["Stairway to Heaven","Led Zeppelin",1971,"United Kingdom"],
+    ["Superstition","Stevie Wonder",1972,"USA"],
+    ["Rocket Man","Elton John",1972,"United Kingdom"],
+    ["Sweet Home Alabama","Lynyrd Skynyrd",1974,"USA"],
+    ["Bohemian Rhapsody","Queen",1975,"United Kingdom"],
+    ["Wish You Were Here","Pink Floyd",1975,"United Kingdom"],
+    ["Dancing Queen","ABBA",1976,"Sweden"],
+    ["Hotel California","Eagles",1976,"USA"],
+    ["More Than a Feeling","Boston",1976,"USA"],
+    ["Anarchy in the U.K.","Sex Pistols",1976,"United Kingdom"],
+    ["Stayin' Alive","Bee Gees",1977,"United Kingdom"],
+    ["Go Your Own Way","Fleetwood Mac",1977,"United Kingdom"],
+    ["Le Freak","Chic",1978,"USA"],
+    ["I Will Survive","Gloria Gaynor",1978,"USA"],
+    ["Y.M.C.A.","Village People",1978,"USA"],
+    ["Heart of Glass","Blondie",1979,"USA"],
+    ["London Calling","The Clash",1979,"United Kingdom"],
+    ["Rapper's Delight","The Sugarhill Gang",1979,"USA"],
+    ["Life on Mars?","David Bowie",1971,"United Kingdom"],
+    ["Smoke on the Water","Deep Purple",1972,"United Kingdom"],
+    ["School's Out","Alice Cooper",1972,"USA"],
+    ["Papa Was a Rollin' Stone","The Temptations",1972,"USA"],
+    ["Killer Queen","Queen",1974,"United Kingdom"],
+    ["Waterloo","ABBA",1974,"Sweden"],
+    ["I Feel Love","Donna Summer",1977,"USA"],
+    ["Dreams","Fleetwood Mac",1977,"United Kingdom"],
+    ["Highway to Hell","AC/DC",1979,"Australia"],
+    ["Another Brick in the Wall, Part 2","Pink Floyd",1979,"United Kingdom"]
+  ]},
+  { id:"80s", name:"The 80s", emoji:"📼", songs:[
+    ["Don't Stop Believin'","Journey",1981,"USA"],
+    ["Tainted Love","Soft Cell",1981,"United Kingdom"],
+    ["Under Pressure","Queen & David Bowie",1981,"United Kingdom"],
+    ["Just Can't Get Enough","Depeche Mode",1981,"United Kingdom"],
+    ["Africa","Toto",1982,"USA"],
+    ["Billie Jean","Michael Jackson",1983,"USA"],
+    ["Sweet Dreams (Are Made of This)","Eurythmics",1983,"United Kingdom"],
+    ["Every Breath You Take","The Police",1983,"United Kingdom"],
+    ["Girls Just Want to Have Fun","Cyndi Lauper",1983,"USA"],
+    ["Blue Monday","New Order",1983,"United Kingdom"],
+    ["Karma Chameleon","Culture Club",1983,"United Kingdom"],
+    ["Purple Rain","Prince",1984,"USA"],
+    ["Wake Me Up Before You Go-Go","Wham!",1984,"United Kingdom"],
+    ["Take On Me","a-ha",1985,"Norway"],
+    ["Livin' on a Prayer","Bon Jovi",1986,"USA"],
+    ["The Final Countdown","Europe",1986,"Sweden"],
+    ["Sweet Child o' Mine","Guns N' Roses",1987,"USA"],
+    ["I Wanna Dance with Somebody","Whitney Houston",1987,"USA"],
+    ["Never Gonna Give You Up","Rick Astley",1987,"United Kingdom"],
+    ["With or Without You","U2",1987,"Ireland"],
+    ["Like a Prayer","Madonna",1989,"USA"],
+    ["Eye of the Tiger","Survivor",1982,"USA"],
+    ["I Ran (So Far Away)","A Flock of Seagulls",1982,"United Kingdom"],
+    ["Let's Dance","David Bowie",1983,"United Kingdom"],
+    ["Relax","Frankie Goes to Hollywood",1983,"United Kingdom"],
+    ["Beat It","Michael Jackson",1983,"USA"],
+    ["Like a Virgin","Madonna",1984,"USA"],
+    ["Time After Time","Cyndi Lauper",1984,"USA"],
+    ["Careless Whisper","George Michael",1984,"United Kingdom"],
+    ["Don't You (Forget About Me)","Simple Minds",1985,"United Kingdom"],
+    ["Walk Like an Egyptian","The Bangles",1986,"USA"]
+  ]},
+  { id:"90s", name:"The 90s", emoji:"💿", songs:[
+    ["Smells Like Teen Spirit","Nirvana",1991,"USA"],
+    ["Losing My Religion","R.E.M.",1991,"USA"],
+    ["Enter Sandman","Metallica",1991,"USA"],
+    ["Under the Bridge","Red Hot Chili Peppers",1991,"USA"],
+    ["Black or White","Michael Jackson",1991,"USA"],
+    ["Creep","Radiohead",1992,"United Kingdom"],
+    ["Zombie","The Cranberries",1994,"Ireland"],
+    ["Sabotage","Beastie Boys",1994,"USA"],
+    ["Wonderwall","Oasis",1995,"United Kingdom"],
+    ["Gangsta's Paradise","Coolio",1995,"USA"],
+    ["Common People","Pulp",1995,"United Kingdom"],
+    ["Wannabe","Spice Girls",1996,"United Kingdom"],
+    ["Killing Me Softly","Fugees",1996,"USA"],
+    ["Barbie Girl","Aqua",1997,"Denmark"],
+    ["Bitter Sweet Symphony","The Verve",1997,"United Kingdom"],
+    ["Torn","Natalie Imbruglia",1997,"Australia"],
+    ["Around the World","Daft Punk",1997,"France"],
+    ["...Baby One More Time","Britney Spears",1998,"USA"],
+    ["Believe","Cher",1998,"USA"],
+    ["No Scrubs","TLC",1999,"USA"],
+    ["I Want It That Way","Backstreet Boys",1999,"USA"],
+    ["Vogue","Madonna",1990,"USA"],
+    ["Jump Around","House of Pain",1992,"USA"],
+    ["What's Up?","4 Non Blondes",1992,"USA"],
+    ["Basket Case","Green Day",1994,"USA"],
+    ["Cotton Eye Joe","Rednex",1994,"Sweden"],
+    ["Ironic","Alanis Morissette",1995,"Canada"],
+    ["Return of the Mack","Mark Morrison",1996,"United Kingdom"],
+    ["MMMBop","Hanson",1997,"USA"],
+    ["Song 2","Blur",1997,"United Kingdom"],
+    ["Livin' la Vida Loca","Ricky Martin",1999,"Puerto Rico"]
+  ]},
+  { id:"00s", name:"The 00s", emoji:"📱", songs:[
+    ["Beautiful Day","U2",2000,"Ireland"],
+    ["Clocks","Coldplay",2002,"United Kingdom"],
+    ["Lose Yourself","Eminem",2002,"USA"],
+    ["Hey Ya!","OutKast",2003,"USA"],
+    ["Crazy in Love","Beyoncé",2003,"USA"],
+    ["Seven Nation Army","The White Stripes",2003,"USA"],
+    ["Toxic","Britney Spears",2003,"USA"],
+    ["In Da Club","50 Cent",2003,"USA"],
+    ["Are You Gonna Be My Girl","Jet",2003,"Australia"],
+    ["Bring Me to Life","Evanescence",2003,"USA"],
+    ["Mr. Brightside","The Killers",2004,"USA"],
+    ["Take Me Out","Franz Ferdinand",2004,"United Kingdom"],
+    ["Since U Been Gone","Kelly Clarkson",2004,"USA"],
+    ["Feel Good Inc.","Gorillaz",2005,"United Kingdom"],
+    ["Hollaback Girl","Gwen Stefani",2005,"USA"],
+    ["Rehab","Amy Winehouse",2006,"United Kingdom"],
+    ["Chasing Cars","Snow Patrol",2006,"United Kingdom"],
+    ["Hips Don't Lie","Shakira",2006,"Colombia"],
+    ["Umbrella","Rihanna",2007,"Barbados"],
+    ["Stronger","Kanye West",2007,"USA"],
+    ["Poker Face","Lady Gaga",2008,"USA"],
+    ["Hot n Cold","Katy Perry",2008,"USA"],
+    ["Sk8er Boi","Avril Lavigne",2002,"Canada"],
+    ["Numb","Linkin Park",2003,"USA"],
+    ["Milkshake","Kelis",2003,"USA"],
+    ["Yeah!","Usher",2004,"USA"],
+    ["Boulevard of Broken Dreams","Green Day",2004,"USA"],
+    ["Bad Day","Daniel Powter",2005,"Canada"],
+    ["Crazy","Gnarls Barkley",2006,"USA"],
+    ["I Kissed a Girl","Katy Perry",2008,"USA"],
+    ["Single Ladies (Put a Ring on It)","Beyoncé",2008,"USA"],
+    ["Viva la Vida","Coldplay",2008,"United Kingdom"]
+  ]},
+  { id:"10s", name:"The 2010s", emoji:"🎧", songs:[
+    ["Rolling in the Deep","Adele",2010,"United Kingdom"],
+    ["Pumped Up Kicks","Foster the People",2010,"USA"],
+    ["Firework","Katy Perry",2010,"USA"],
+    ["Somebody That I Used to Know","Gotye",2011,"Australia"],
+    ["Call Me Maybe","Carly Rae Jepsen",2011,"Canada"],
+    ["Radioactive","Imagine Dragons",2012,"USA"],
+    ["Get Lucky","Daft Punk",2013,"France"],
+    ["Happy","Pharrell Williams",2013,"USA"],
+    ["Royals","Lorde",2013,"New Zealand"],
+    ["Wake Me Up","Avicii",2013,"Sweden"],
+    ["Take Me to Church","Hozier",2013,"Ireland"],
+    ["Counting Stars","OneRepublic",2013,"USA"],
+    ["Uptown Funk","Mark Ronson",2014,"United Kingdom"],
+    ["Shake It Off","Taylor Swift",2014,"USA"],
+    ["Cheap Thrills","Sia",2016,"Australia"],
+    ["Can't Stop the Feeling!","Justin Timberlake",2016,"USA"],
+    ["Shape of You","Ed Sheeran",2017,"United Kingdom"],
+    ["Despacito","Luis Fonsi",2017,"Puerto Rico"],
+    ["HUMBLE.","Kendrick Lamar",2017,"USA"],
+    ["Bad Guy","Billie Eilish",2019,"USA"],
+    ["Blinding Lights","The Weeknd",2019,"Canada"],
+    ["Old Town Road","Lil Nas X",2019,"USA"],
+    ["Someone Like You","Adele",2011,"United Kingdom"],
+    ["Thrift Shop","Macklemore & Ryan Lewis",2012,"USA"],
+    ["Roar","Katy Perry",2013,"USA"],
+    ["Chandelier","Sia",2014,"Australia"],
+    ["All About That Bass","Meghan Trainor",2014,"USA"],
+    ["Stay With Me","Sam Smith",2014,"United Kingdom"],
+    ["Lean On","Major Lazer",2015,"USA"],
+    ["Sorry","Justin Bieber",2015,"Canada"],
+    ["Feel It Still","Portugal. The Man",2017,"USA"],
+    ["Dance Monkey","Tones and I",2019,"Australia"]
+  ]},
+  { id:"norsk", name:"Norsk", emoji:"🇳🇴", songs:[
+    ["Optimist","Jahn Teigen",1983,"Norway"],
+    ["Eg ser","Bjørn Eidsvåg",1983,"Norway"],
+    ["Take On Me","a-ha",1985,"Norway"],
+    ["Neste sommer","deLillos",1986,"Norway"],
+    ["Splitter pine","DumDum Boys",1988,"Norway"],
+    ["Eple","Röyksopp",2001,"Norway"],
+    ["I'd Rather Dance with You","Kings of Convenience",2004,"Norway"],
+    ["Beggin'","Madcon",2007,"Norway"],
+    ["The Fox","Ylvis",2013,"Norway"],
+    ["Am I Wrong","Nico & Vinz",2013,"Norway"],
+    ["Firestone","Kygo",2014,"Norway"],
+    ["Runaway","Aurora",2015,"Norway"],
+    ["Faded","Alan Walker",2015,"Norway"],
+    ["Don't Kill My Vibe","Sigrid",2017,"Norway"],
+    ["Hunting High and Low","a-ha",1986,"Norway"],
+    ["Stole the Show","Kygo",2015,"Norway"],
+    ["Alone","Alan Walker",2016,"Norway"],
+    ["Strangers","Sigrid",2017,"Norway"]
+  ]}
+];
+
+const YEAR_FACTS = {
+1960:"Fourteen African countries gained independence — it became known as the Year of Africa.",
+1961:"Yuri Gagarin became the first human in space, and the Berlin Wall went up.",
+1962:"The Cuban Missile Crisis brought the superpowers within days of nuclear war.",
+1963:"President John F. Kennedy was assassinated in Dallas.",
+1964:"Nelson Mandela was sentenced to life imprisonment in South Africa.",
+1965:"The first American combat troops landed in Vietnam.",
+1966:"England won the football World Cup on home soil.",
+1967:"The first successful human heart transplant was performed in Cape Town.",
+1968:"Martin Luther King Jr. was assassinated, and Soviet tanks rolled into Prague.",
+1969:"Apollo 11 landed on the Moon, and Woodstock drew half a million people.",
+1970:"Oil was struck at Ekofisk on the Norwegian shelf — the find that changed Norway.",
+1971:"The first email was sent, and Britain switched to decimal currency.",
+1972:"Norway voted no to joining the European Community.",
+1973:"The OPEC oil embargo sent fuel prices soaring across the West.",
+1974:"ABBA won Eurovision with 'Waterloo', and Nixon resigned over Watergate.",
+1975:"The Vietnam War ended as Saigon fell.",
+1976:"The Apple I was built, and Concorde began commercial flights.",
+1977:"Elvis Presley died, and Star Wars opened in cinemas.",
+1978:"The world's first IVF baby was born in England.",
+1979:"The Iranian Revolution toppled the Shah, and the Sony Walkman went on sale.",
+1980:"John Lennon was shot dead in New York.",
+1981:"MTV launched with 'Video Killed the Radio Star', and the first AIDS cases were reported.",
+1982:"The Falklands War was fought, and the compact disc went on sale.",
+1983:"The internet switched to TCP/IP — the protocol it still runs on today.",
+1984:"Apple launched the Macintosh, and Band Aid recorded 'Do They Know It's Christmas?'.",
+1985:"Live Aid was broadcast worldwide, and Microsoft shipped the first Windows.",
+1986:"The Chernobyl reactor exploded, and the Challenger shuttle was lost.",
+1987:"The Brundtland Report put 'sustainable development' on the world agenda.",
+1988:"The Soviet Union began pulling its troops out of Afghanistan.",
+1989:"The Berlin Wall fell, and the World Wide Web was proposed at CERN.",
+1990:"Germany reunified, and Nelson Mandela walked free after 27 years.",
+1991:"The Soviet Union dissolved, and the Gulf War was fought.",
+1992:"The Maastricht Treaty created the European Union.",
+1993:"The Mosaic browser made the web usable for ordinary people.",
+1994:"Norway hosted the Winter Olympics at Lillehammer — and voted no to the EU again.",
+1995:"Amazon and eBay both opened for business.",
+1996:"Dolly the sheep became the first cloned mammal.",
+1997:"Princess Diana died in Paris, and Deep Blue beat Kasparov at chess.",
+1998:"Google was founded in a California garage.",
+1999:"The euro launched as an accounting currency, and the world braced for Y2K.",
+2000:"The dot-com bubble burst.",
+2001:"The September 11 attacks. Wikipedia and the iPod both launched.",
+2002:"Euro notes and coins entered circulation in twelve countries.",
+2003:"The Iraq War began, and the human genome was declared complete.",
+2004:"Facebook launched, and the Indian Ocean tsunami killed over 200,000 people.",
+2005:"YouTube was founded.",
+2006:"Twitter launched, and Pluto was demoted from planet status.",
+2007:"The first iPhone went on sale.",
+2008:"Lehman Brothers collapsed, triggering the global financial crisis.",
+2009:"Barack Obama took office and collected his Nobel Peace Prize in Oslo.",
+2010:"An Icelandic volcano shut down European airspace for days.",
+2011:"The Arab Spring swept North Africa, and Steve Jobs died.",
+2012:"Curiosity landed on Mars, and London hosted the Olympics.",
+2013:"Edward Snowden's leaks revealed mass surveillance programmes.",
+2014:"Russia annexed Crimea, and Ebola swept West Africa.",
+2015:"The Paris climate agreement was signed.",
+2016:"Britain voted to leave the EU, and Donald Trump was elected.",
+2017:"The #MeToo movement went global.",
+2018:"The GDPR came into force across Europe.",
+2019:"The first image of a black hole was published, and climate strikes spread worldwide.",
+2020:"The COVID-19 pandemic shut down much of the world.",
+2021:"The first billionaires flew themselves to the edge of space.",
+2022:"Russia invaded Ukraine, and ChatGPT was released."
+};
+
+const ARTIST_HINTS = {
+"Booker T. & the M.G.'s":"American instrumental band — the Stax house band, black and white members at a time that was rare.",
+"The Kinks":"English band led by the Davies brothers — also did 'Lola'.",
+"The Spencer Davis Group":"British band whose teenage singer was Steve Winwood.",
+"Buffalo Springfield":"American folk-rock band featuring Neil Young and Stephen Stills.",
+"Otis Redding":"American soul singer who died in a plane crash at 26.",
+"David Bowie":"English singer who changed persona every few years.",
+"Elvis Presley":"The King.",
+"Deep Purple":"English hard rock band with one riff every guitar shop bans.",
+"Alice Cooper":"American shock-rock singer — the man and the band share a name.",
+"The Temptations":"Motown vocal group from Detroit — also did 'My Girl'.",
+"Donna Summer":"American singer called the Queen of Disco.",
+"AC/DC":"Australian band whose guitarist dresses as a schoolboy.",
+"Survivor":"American band whose big hit came from a boxing film.",
+"A Flock of Seagulls":"British new-wave band remembered as much for the haircut.",
+"Frankie Goes to Hollywood":"Liverpool band whose single was banned by the BBC.",
+"George Michael":"English singer with a famous saxophone intro — formerly half of a duo.",
+"Simple Minds":"Scottish band whose biggest hit came from a John Hughes film.",
+"The Bangles":"American all-female band from Los Angeles — also did 'Eternal Flame'.",
+"House of Pain":"American hip-hop trio with one very bouncy hit.",
+"4 Non Blondes":"American band from San Francisco with one enormous 'hey yeah yeah'.",
+"Green Day":"American punk band from California — also did 'American Idiot'.",
+"Rednex":"Swedish group who put a fiddle over a dance beat.",
+"Alanis Morissette":"Canadian singer whose album 'Jagged Little Pill' sold 30 million.",
+"Mark Morrison":"British R&B singer with one huge 1996 hit.",
+"Hanson":"Three American brothers, very young, very blond.",
+"Blur":"English band, Oasis's great rivals — also did 'Parklife'.",
+"Ricky Martin":"Puerto Rican singer who started in the boy band Menudo.",
+"Avril Lavigne":"Canadian singer in a tie and skate shoes.",
+"Linkin Park":"American band mixing rap and metal, fronted by Chester Bennington.",
+"Kelis":"American singer whose hit was about a milkshake.",
+"Usher":"American R&B singer from Atlanta — this one features Lil Jon and Ludacris.",
+"Daniel Powter":"Canadian singer whose piano ballad became an American Idol staple.",
+"Gnarls Barkley":"American duo: CeeLo Green plus producer Danger Mouse.",
+"Macklemore & Ryan Lewis":"American rapper and producer who charted without a record label.",
+"Meghan Trainor":"American singer with a doo-wop bassline and a body-positive message.",
+"Sam Smith":"English singer whose hit shares a melody with a Tom Petty song.",
+"Major Lazer":"American electronic project led by producer Diplo.",
+"Justin Bieber":"Canadian singer discovered on YouTube as a child.",
+"Portugal. The Man":"American band from Alaska, despite the name.",
+"Tones and I":"Australian singer discovered busking in Byron Bay.",
+"Ben E. King":"American soul singer — his best-known song was later a film title.",
+"The Beatles":"Four men from Liverpool. You know the ones.",
+"The Animals":"British invasion band from Newcastle, built around a growling organ.",
+"Martha and the Vandellas":"Motown girl group from Detroit — also did 'Nowhere to Run'.",
+"The Mamas & the Papas":"American folk-pop quartet famous for four-part harmony.",
+"The Rolling Stones":"English band still touring sixty years on.",
+"The Who":"English band notorious for smashing their instruments — also did 'Baba O'Riley'.",
+"The Beach Boys":"Californian harmony group — also did 'Wouldn't It Be Nice'.",
+"Nancy Sinatra":"American singer with a very famous father.",
+"Aretha Franklin":"American singer known as the Queen of Soul.",
+"Jimi Hendrix":"American guitarist who played left-handed on a right-handed guitar.",
+"Cream":"British power trio featuring Eric Clapton.",
+"The Doors":"Los Angeles band named after a Aldous Huxley book title.",
+"Procol Harum":"English band whose one huge hit borrows from Bach.",
+"Van Morrison":"Singer from Belfast — also did 'Moondance'.",
+"Marvin Gaye":"Motown star — also did 'What's Going On'.",
+"Steppenwolf":"Hard rock band whose big hit became a biker anthem.",
+"Simon & Garfunkel":"American folk duo — also did 'The Sound of Silence'.",
+"Big Brother and the Holding Company":"San Francisco band fronted by Janis Joplin.",
+"Creedence Clearwater Revival":"Californian band that sounded like the Deep South.",
+"Al Green":"American soul singer who later became a pastor.",
+"John Lennon":"Solo career after the most famous band in the world.",
+"Don McLean":"American singer of an eight-minute song about 'the day the music died'.",
+"Led Zeppelin":"English band with a drummer called Bonzo.",
+"Stevie Wonder":"American Motown genius, blind since infancy.",
+"Elton John":"English pianist, born Reginald Dwight.",
+"Lynyrd Skynyrd":"Southern rock band — also did 'Free Bird'.",
+"Queen":"British band fronted by Freddie Mercury.",
+"Pink Floyd":"English band behind 'The Dark Side of the Moon'.",
+"ABBA":"Two couples from Stockholm.",
+"Eagles":"Californian band — also did 'Take It Easy'.",
+"Boston":"American band named after a city, built in an engineer's basement.",
+"Sex Pistols":"The loudest band of British punk, managed by Malcolm McLaren.",
+"Bee Gees":"Three brothers, falsetto harmonies — also did 'How Deep Is Your Love'.",
+"Fleetwood Mac":"British-American band named after its drummer and bassist.",
+"Chic":"American disco band led by guitarist Nile Rodgers.",
+"Gloria Gaynor":"American singer of the definitive disco break-up anthem.",
+"Village People":"American disco group in costume — also did 'In the Navy'.",
+"Blondie":"New York new-wave band fronted by Debbie Harry.",
+"The Clash":"British punk band, more reggae-influenced than their peers.",
+"The Sugarhill Gang":"American trio behind the first hip-hop single to chart.",
+"Journey":"American stadium rock band with a Filipino-born singer.",
+"Soft Cell":"English synth duo who covered a 1960s northern soul song.",
+"Queen & David Bowie":"A British band and a British solo legend on one bassline.",
+"Depeche Mode":"English synth band from Basildon — also did 'Enjoy the Silence'.",
+"Toto":"American session musicians turned band, named after a dog.",
+"Michael Jackson":"The King of Pop.",
+"Eurythmics":"Scottish-English duo: one singer, one producer.",
+"The Police":"British trio featuring Sting — also did 'Roxanne'.",
+"Cyndi Lauper":"American singer with dyed hair and a huge 1983.",
+"New Order":"English band formed from the ashes of Joy Division.",
+"Culture Club":"British band fronted by Boy George.",
+"Prince":"American multi-instrumentalist from Minneapolis.",
+"Wham!":"British duo — one of them went on to a huge solo career.",
+"a-ha":"Norwegian trio — also did 'The Sun Always Shines on T.V.'.",
+"Bon Jovi":"American band from New Jersey — also did 'Wanted Dead or Alive'.",
+"Europe":"Swedish band with one enormous keyboard riff.",
+"Guns N' Roses":"American band fronted by Axl Rose.",
+"Whitney Houston":"American singer with one of the great voices.",
+"Rick Astley":"English singer who became an internet joke decades later.",
+"U2":"Irish band fronted by Bono.",
+"Madonna":"American singer often called the Queen of Pop.",
+"Nirvana":"American grunge trio from Washington state.",
+"R.E.M.":"American band from Athens, Georgia — also did 'Everybody Hurts'.",
+"Metallica":"American thrash metal band — also did 'Nothing Else Matters'.",
+"Red Hot Chili Peppers":"Californian funk-rock band — also did 'Californication'.",
+"Radiohead":"English band from Oxford — also did 'Karma Police'.",
+"The Cranberries":"Irish band with a distinctive yodelling vocal.",
+"Beastie Boys":"New York trio who came from punk to hip-hop.",
+"Oasis":"English band built around two feuding brothers.",
+"Coolio":"American rapper whose biggest hit came from a film soundtrack.",
+"Pulp":"English band from Sheffield, fronted by Jarvis Cocker.",
+"Spice Girls":"British group of five, each with a nickname.",
+"Fugees":"American hip-hop trio featuring Lauryn Hill.",
+"Aqua":"Danish-Norwegian pop group with one very plastic hit.",
+"The Verve":"English band whose hit had a famous sampling lawsuit.",
+"Natalie Imbruglia":"Australian singer and soap actress.",
+"Daft Punk":"French duo who performed in robot helmets.",
+"Britney Spears":"American pop star who started on the Mickey Mouse Club.",
+"Cher":"American singer whose comeback hit made Auto-Tune famous.",
+"TLC":"American R&B trio — also did 'Waterfalls'.",
+"Backstreet Boys":"American boy band from Orlando.",
+"Coldplay":"English band fronted by Chris Martin.",
+"Eminem":"American rapper from Detroit.",
+"OutKast":"American hip-hop duo from Atlanta.",
+"Beyoncé":"American singer who started in Destiny's Child.",
+"The White Stripes":"American duo in red and white — guitar and drums only.",
+"50 Cent":"American rapper produced by Dr. Dre and Eminem.",
+"Jet":"Australian rock band with a very Iggy Pop-ish riff.",
+"Evanescence":"American rock band fronted by Amy Lee.",
+"The Killers":"American band from Las Vegas.",
+"Franz Ferdinand":"Scottish band named after an assassinated archduke.",
+"Kelly Clarkson":"American singer, the first winner of American Idol.",
+"Gorillaz":"British virtual band created by a Blur singer and a cartoonist.",
+"Gwen Stefani":"American singer who fronted No Doubt.",
+"Amy Winehouse":"English soul singer with a beehive hairdo.",
+"Snow Patrol":"British band formed in Scotland with Northern Irish members.",
+"Shakira":"Colombian singer known for her hips.",
+"Rihanna":"Barbadian singer — also did 'Diamonds'.",
+"Kanye West":"American rapper and producer from Chicago.",
+"Lady Gaga":"American singer known for extreme costumes.",
+"Katy Perry":"American pop singer — also did 'Roar'.",
+"Adele":"English singer who names her albums after her age.",
+"Foster the People":"American indie band with a very cheerful-sounding dark song.",
+"Gotye":"Belgian-born Australian singer with one giant hit.",
+"Carly Rae Jepsen":"Canadian singer whose hit was pushed by Justin Bieber.",
+"Imagine Dragons":"American rock band from Las Vegas.",
+"Pharrell Williams":"American producer, half of The Neptunes.",
+"Lorde":"New Zealand singer who charted at sixteen.",
+"Avicii":"Swedish DJ and producer, born Tim Bergling.",
+"Hozier":"Irish singer-songwriter with a gospel-tinged hit.",
+"OneRepublic":"American band led by songwriter Ryan Tedder.",
+"Mark Ronson":"English producer — this one features Bruno Mars.",
+"Taylor Swift":"American singer who moved from country to pop.",
+"Sia":"Australian singer who hides her face behind a wig.",
+"Justin Timberlake":"American singer who started in NSYNC.",
+"Ed Sheeran":"English singer-songwriter with a loop pedal.",
+"Luis Fonsi":"Puerto Rican singer of the most-streamed song of its year.",
+"Kendrick Lamar":"American rapper from Compton, later a Pulitzer winner.",
+"Billie Eilish":"American singer who records with her brother in a bedroom.",
+"The Weeknd":"Canadian singer, born Abel Tesfaye.",
+"Lil Nas X":"American rapper whose hit started on TikTok.",
+"Jahn Teigen":"Norwegian entertainer famous for scoring nul points at Eurovision.",
+"Bjørn Eidsvåg":"Norwegian singer-songwriter and trained priest.",
+"deLillos":"Norwegian band, pillars of 1980s norsk rock.",
+"DumDum Boys":"Norwegian rock band from Trondheim.",
+"Röyksopp":"Norwegian electronic duo from Tromsø.",
+"Kings of Convenience":"Norwegian acoustic duo from Bergen — quiet is the new loud.",
+"Madcon":"Norwegian hip-hop duo from Oslo whose biggest hit was a cover.",
+"Ylvis":"Norwegian comedy duo and TV hosts, brothers.",
+"Nico & Vinz":"Norwegian duo from Oslo, formerly Envy.",
+"Kygo":"Norwegian DJ from Bergen who popularised tropical house.",
+"Aurora":"Norwegian singer from Os, near Bergen.",
+"Alan Walker":"British-Norwegian DJ known for a hoodie and a face mask.",
+"Sigrid":"Norwegian singer from Ålesund."
+};
+
+const REGION = {
+  "USA":"North America","Canada":"North America","Mexico":"North America",
+  "United Kingdom":"Europe","Ireland":"Europe","Sweden":"Europe","Norway":"Europe",
+  "Denmark":"Europe","Finland":"Europe","Iceland":"Europe","France":"Europe","Germany":"Europe",
+  "Netherlands":"Europe","Spain":"Europe","Italy":"Europe","Belgium":"Europe",
+  "Australia":"Oceania","New Zealand":"Oceania",
+  "Colombia":"South America","Brazil":"South America","Argentina":"South America",
+  "Barbados":"the Caribbean","Jamaica":"the Caribbean","Puerto Rico":"the Caribbean",
+  "South Africa":"Africa","Nigeria":"Africa","Japan":"Asia","South Korea":"Asia"
+};
+
+const DEFAULTS = {
+  songs:15, clip:8, start:"0", replays:1, yearmode:"1", norepeat:"1",
+  cats:{title:true, artist:true, year:true, origin:false},
+  ptitle:1, partist:1, pyear:1, porigin:1, pbonus:0,
+  hints:"afterplay", hcost:1
+};
+const CATS = [
+  {k:"title",  nm:"Song title", p:"ptitle"},
+  {k:"artist", nm:"Artist",     p:"partist"},
+  {k:"year",   nm:"Year",       p:"pyear"},
+  {k:"origin", nm:"Country",    p:"porigin"}
+];
+
+/* ------------------------------- storage ------------------------------- */
+let storageOK = true;
+const LS = {
+  get(k, fb){ try{ const v=localStorage.getItem("mq_"+k); return v==null?fb:JSON.parse(v); }catch(e){ storageOK=false; return fb; } },
+  set(k, v){ try{ localStorage.setItem("mq_"+k, JSON.stringify(v)); }catch(e){ storageOK=false; } }
+};
+try{ localStorage.setItem("mq_probe","1"); localStorage.removeItem("mq_probe"); }catch(e){ storageOK=false; }
+
+function deepCopy(o){ return JSON.parse(JSON.stringify(o)); }
+let settings = Object.assign({}, deepCopy(DEFAULTS), LS.get("settings", {}));
+settings.cats = Object.assign({}, DEFAULTS.cats, settings.cats||{});
+if(!CATS.some(c=>settings.cats[c.k])) settings.cats.title = true;
+
+let playlists  = LS.get("playlists", null) || deepCopy(BUILTIN);
+let players    = LS.get("players", null) || [{name:"Team 1"},{name:"Team 2"}];
+let selected   = LS.get("selected", null) || ["80s"];
+let highscores = LS.get("highscores", []) || [];
+let clipCache  = LS.get("clipcache", {}) || {};
+let history    = LS.get("history", []) || [];
+const filePlaylists = [];
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const COLORS = ["#3ef04a","#5fc8ff","#ffd34d","#ff7a6d","#c79bff","#ff9d4d","#5fdfd0","#ff8fb1"];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const au = $("#au");
+au.volume = 1;
+const saveS = ()=>LS.set("settings", settings);
+
+/* -------------------------------- views -------------------------------- */
+function show(v){
+  ["setup","play","result","playlists","settings","scores"].forEach(n=>{
+    const el=$("#v-"+n); if(el) el.classList.toggle("hidden", n!==v);
+  });
+  $$(".tabs button").forEach(b=>b.classList.toggle("on", b.dataset.view===v));
+  window.scrollTo(0,0);
+  if(v==="scores") renderScores();
+  if(v==="playlists") renderPlEditor();
+  if(v==="settings"){ renderOptions(); $("#nostorage").classList.toggle("hidden", storageOK); }
+  if(v==="setup"){ renderQuick(); renderReady(); }
+}
+$$("[data-view]").forEach(b=>b.onclick = ()=>{
+  if(game.active && b.dataset.view!=="play"){ if(!confirm("Leave the round in progress?")) return; game.active=false; stopClip(); }
+  show(b.dataset.view);
+});
+
+/* --------------------------- segmented radios -------------------------- */
+function segRow(label, vals, get, set, fmt){
+  const d = document.createElement("div"); d.className="optrow";
+  d.innerHTML = `<span class="lb">${esc(label)}</span>`;
+  const seg = document.createElement("div"); seg.className="seg";
+  vals.forEach(v=>{
+    const b=document.createElement("button");
+    b.textContent = fmt ? fmt(v) : v;
+    b.className = String(get())===String(v) ? "on" : "";
+    b.onclick = ()=>{ set(v); saveS();
+      seg.querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on");
+      renderReady(); renderQuick(); if(!$("#v-settings").classList.contains("hidden")) renderOptions(); };
+    seg.appendChild(b);
+  });
+  d.appendChild(seg); return d;
+}
+const YEARVALS = ["exact","1","2","3","5","decade"];
+const yearFmt = v => v==="exact" ? "Exact" : v==="decade" ? "Decade" : "±"+v;
+const hintFmt = v => v==="off" ? "Off" : v==="always" ? "Any time" : "After play";
+
+function renderQuick(){
+  const box = $("#quickopts"); box.innerHTML="";
+  box.appendChild(segRow("Songs",[5,10,15,20,25,30], ()=>settings.songs, v=>settings.songs=v));
+  box.appendChild(segRow("Clip length",[3,5,8,10,15,20,30], ()=>settings.clip, v=>settings.clip=v, v=>v+"s"));
+  box.appendChild(segRow("Year rule", YEARVALS, ()=>settings.yearmode, v=>settings.yearmode=v, yearFmt));
+  box.appendChild(segRow("Hints",["off","afterplay","always"], ()=>settings.hints, v=>settings.hints=v, hintFmt));
+  renderCats($("#cats"));
+}
+function renderCats(box){
+  if(!box) return;
+  box.innerHTML="";
+  CATS.forEach(c=>{
+    const r=document.createElement("div"); r.className="catrow";
+    const tg=document.createElement("button");
+    tg.className="tg"+(settings.cats[c.k]?" on":"");
+    tg.innerHTML=`<span class="box">✓</span><span class="nm">${esc(c.nm)}</span>`;
+    const seg=document.createElement("div"); seg.className="seg";
+    [1,2,3,5].forEach(p=>{
+      const b=document.createElement("button");
+      b.textContent=p+"p";
+      b.className = (+settings[c.p]===p) ? "on":"";
+      b.onclick=()=>{ settings[c.p]=p; saveS();
+        seg.querySelectorAll("button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); };
+      seg.appendChild(b);
+    });
+    tg.onclick=()=>{
+      const on = !settings.cats[c.k];
+      if(!on && CATS.filter(x=>settings.cats[x.k]).length<=1){ flashCats("Keep at least one category on."); return; }
+      settings.cats[c.k]=on; saveS();
+      renderCats($("#cats")); renderCats($("#cats2")); renderReady();
+    };
+    r.appendChild(tg);
+    r.appendChild(Object.assign(document.createElement("span"),{className:"pts",textContent:"worth"}));
+    r.appendChild(seg);
+    box.appendChild(r);
+  });
+}
+function flashCats(m){ const el=$("#catshint"); if(!el) return; el.textContent=m; setTimeout(()=>renderReady(),2500); }
+
+function renderOptions(){
+  const r = $("#optround"); r.innerHTML="";
+  r.appendChild(segRow("Songs",[5,10,15,20,25,30,40,50], ()=>settings.songs, v=>settings.songs=v));
+  r.appendChild(segRow("Clip length",[2,3,5,8,10,15,20,30], ()=>settings.clip, v=>settings.clip=v, v=>v+"s"));
+  r.appendChild(segRow("Clip starts",["0","5","10","random"], ()=>settings.start, v=>settings.start=v,
+    v=> v==="0"?"Start":v==="random"?"Random":v+"s in"));
+  r.appendChild(segRow("Replays",[0,1,2,99], ()=>settings.replays, v=>settings.replays=v, v=> v===99?"∞":v));
+  r.appendChild(segRow("Repeats",["1","0"], ()=>settings.norepeat, v=>settings.norepeat=v,
+    v=> v==="1"?"Avoid recent":"Pure random"));
+  const h=document.createElement("div"); h.className="hint";
+  h.textContent = history.length ? `${history.length} songs are in the played history right now.` : "Nothing played yet.";
+  r.appendChild(h);
+
+  renderCats($("#cats2"));
+  const s = $("#optscore"); s.innerHTML="";
+  s.appendChild(segRow("Year rule", YEARVALS, ()=>settings.yearmode, v=>settings.yearmode=v, yearFmt));
+  s.appendChild(segRow("Sweep bonus",[0,1,2,3,5], ()=>settings.pbonus, v=>settings.pbonus=v, v=> v===0?"Off":v+"p"));
+  const s2=document.createElement("div"); s2.className="hint";
+  s2.textContent = "The reveal card tells you which years to accept, so there is no arithmetic mid-quiz.";
+  s.appendChild(s2);
+
+  const hh = $("#opthints"); hh.innerHTML="";
+  hh.appendChild(segRow("Hints",["off","afterplay","always"], ()=>settings.hints, v=>settings.hints=v, hintFmt));
+  hh.appendChild(segRow("Cost",[0,1,2,3,5], ()=>settings.hcost, v=>settings.hcost=v, v=> v===0?"Free":v+"p"));
+}
+
+/* ------------------------------ playlists ------------------------------ */
+function allPlaylists(){ return playlists.concat(filePlaylists); }
+function plById(id){ return allPlaylists().find(p=>p.id===id); }
+const keyOf = s => norm(s.artist)+"::"+norm(s.title);
+
+function renderPicker(){
+  const box=$("#plpick"); box.innerHTML="";
+  allPlaylists().forEach(p=>{
+    const on = selected.includes(p.id);
+    const b=document.createElement("button");
+    b.className="stage"+(on?" on":"");
+    b.innerHTML=`<span class="em">${esc(p.emoji||"🎵")}</span><span style="flex:1">
+      <span class="nm">${esc(p.name)}</span><span class="ct">${p.songs.length} tracks${p.local?" · files":""}</span></span>`;
+    b.onclick=()=>{
+      selected = on ? selected.filter(x=>x!==p.id) : selected.concat(p.id);
+      LS.set("selected", selected.filter(id=>playlists.some(q=>q.id===id)));
+      renderPicker(); renderReady();
+    };
+    box.appendChild(b);
+  });
+}
+function pool(){
+  const out=[], seen=new Set();
+  selected.forEach(id=>{
+    const p=plById(id); if(!p) return;
+    p.songs.forEach(s=>{
+      const song = Array.isArray(s) ? {title:s[0],artist:s[1],year:s[2],origin:s[3]||""} : Object.assign({},s);
+      const k=keyOf(song); if(seen.has(k)) return;
+      seen.add(k); song.from=p.name; out.push(song);
+    });
+  });
+  return out;
+}
+
+/* ------------------------------- players ------------------------------- */
+function renderPlayers(){
+  const box=$("#players"); box.innerHTML="";
+  players.forEach((p,i)=>{
+    const d=document.createElement("div"); d.className="slot";
+    d.innerHTML=`<span class="bar" style="background:${COLORS[i%COLORS.length]}"></span>
+      <span class="pn">P${i+1}</span>
+      <input type="text" value="${esc(p.name)}" placeholder="Name" maxlength="18">
+      <button class="x" title="Remove">✕</button>`;
+    d.querySelector("input").oninput = e=>{ players[i].name=e.target.value; LS.set("players",players); };
+    d.querySelector(".x").onclick = ()=>{
+      if(players.length<=1) return;
+      players.splice(i,1); LS.set("players",players); renderPlayers(); renderReady();
+    };
+    box.appendChild(d);
+  });
+}
+$("#addplayer").onclick = ()=>{
+  if(players.length>=8) return;
+  players.push({name:"Team "+(players.length+1)});
+  LS.set("players",players); renderPlayers(); renderReady();
+};
+
+function activeCats(){ return CATS.filter(c=>settings.cats[c.k]).map(c=>c.k); }
+function yearRuleLabel(){
+  const m=String(settings.yearmode);
+  return m==="exact" ? "exact year" : m==="decade" ? "right decade" : "± "+m+" year"+(m==="1"?"":"s");
+}
+function renderReady(){
+  const p=pool(), n=p.length, want=Math.min(settings.songs,n);
+  const fresh=p.filter(s=>history.indexOf(keyOf(s))<0).length;
+  $("#poolinfo").textContent = n ? n+" tracks · "+fresh+" unplayed" : "";
+  const cats = activeCats().map(k=>CATS.find(c=>c.k===k).nm.toLowerCase()).join(" + ");
+  $("#readyline").textContent = n===0 ? "Pick at least one stage."
+    : `${want} songs · ${settings.clip}s clips · ${players.length} ${players.length===1?"player":"players"}`;
+  const ch=$("#catshint");
+  if(ch) ch.textContent = `Guessing ${cats}${settings.cats.year? " · "+yearRuleLabel() : ""}.`;
+  $("#start").disabled = n===0 || players.length===0;
+  if(game.active===false && $("#v-play").classList.contains("hidden"))
+    setMarquee(`Musikkquiz ··· ${allPlaylists().reduce((a,q)=>a+q.songs.length,0)} tracks loaded ··· ${want} song round ··· press start ···`);
+}
+$("#resethist").onclick = ()=>{ history=[]; LS.set("history",[]); renderReady();
+  $("#testmsg").textContent="Played history cleared"; setTimeout(()=>$("#testmsg").textContent="",3000); };
+
+/* ------------------------------ visualiser ----------------------------- */
+const vis = { cv:$("#vis"), ctx:null, mode:0, raf:null, active:false, peaks:[], vals:[], t:0 };
+vis.ctx = vis.cv.getContext("2d");
+const VMODES = ["Analyzer","Scope","Off"];
+function sizeVis(){
+  const r = vis.cv.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio||1, 2);
+  vis.cv.width = Math.max(80, Math.floor(r.width*dpr));
+  vis.cv.height = Math.max(40, Math.floor(62*dpr));
+  vis.ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener("resize", sizeVis);
+$("#visbox").onclick = ()=>{
+  vis.mode = (vis.mode+1)%VMODES.length;
+  $("#vlabel").textContent = VMODES[vis.mode];
+  LS.set("vismode", vis.mode);
+  if(vis.mode===2) clearVis();
+};
+vis.mode = LS.get("vismode",0)||0;
+$("#vlabel").textContent = VMODES[vis.mode];
+
+function clearVis(){
+  const w=vis.cv.clientWidth||300, h=62;
+  vis.ctx.clearRect(0,0,w,h);
+}
+/* stylised spectrum — the preview clips are cross-origin so the browser will not
+   hand us real FFT data without silencing the audio; this is driven by playback time */
+function noise(i,t){
+  return (Math.sin(i*1.7 + t*5.1) + Math.sin(i*0.6 - t*3.3) + Math.sin(i*2.9 + t*7.7))/3;
+}
+function drawVis(){
+  vis.raf = requestAnimationFrame(drawVis);
+  if(vis.mode===2) return;
+  const w=vis.cv.clientWidth||300, h=62, c=vis.ctx;
+  c.clearRect(0,0,w,h);
+  const t = vis.t += 0.016;
+  const live = vis.active;
+
+  if(vis.mode===0){
+    const n = Math.max(12, Math.min(28, Math.floor(w/11)));
+    const bw = w/n;
+    if(vis.peaks.length!==n){ vis.peaks=new Array(n).fill(0); vis.vals=new Array(n).fill(0); }
+    const beat = live ? (0.72 + 0.28*Math.pow(Math.abs(Math.sin(t*3.0)),3)) : 0;
+    for(let i=0;i<n;i++){
+      const tilt = 1 - (i/n)*0.55;                       // bass louder than treble
+      let target = live ? Math.max(0,(noise(i,t)*0.5+0.5)) * tilt * beat
+                        : 0.05 + 0.035*(Math.sin(i*0.8 + t*0.9)*0.5+0.5);   // idle shimmer
+      vis.vals[i] += (target - vis.vals[i]) * (target>vis.vals[i] ? 0.55 : 0.14);
+      const v = Math.max(0, Math.min(1, vis.vals[i]));
+      vis.peaks[i] = Math.max(vis.peaks[i]-0.011, v);
+      const bh = Math.round(v*(h-6));
+      const x = Math.round(i*bw)+1, bwid = Math.max(2, Math.floor(bw)-2);
+      for(let y=0;y<bh;y+=3){
+        const f = y/(h-6);
+        c.fillStyle = f>0.74 ? "#ff5a4d" : f>0.44 ? "#ffd34d" : "#3ef04a";
+        c.fillRect(x, h-3-y-2, bwid, 2);
+      }
+      const py = Math.round(vis.peaks[i]*(h-6));
+      if(vis.peaks[i]>0.02){ c.fillStyle="#b9c6b9"; c.fillRect(x, h-3-py-2, bwid, 2); }
+    }
+  } else {
+    c.strokeStyle="#3ef04a"; c.lineWidth=1.5; c.beginPath();
+    for(let x=0;x<w;x++){
+      const p=x/w;
+      const amp = live ? 0.38*(0.6+0.4*Math.sin(t*2.6)) : 0.012;
+      const y = h/2 + Math.sin(p*22 + t*8)*h*amp*0.5 + Math.sin(p*47 - t*5)*h*amp*0.22;
+      x===0 ? c.moveTo(x,y) : c.lineTo(x,y);
+    }
+    c.stroke();
+  }
+}
+function setMarquee(txt){
+  const el=$("#marqtxt"), m=$("#marq");
+  el.textContent = txt;
+  const overflow = el.scrollWidth > m.clientWidth;
+  if(overflow){ el.textContent = txt+"   "+txt; m.classList.add("run"); }
+  else m.classList.remove("run");
+}
+
+/* ----------------------------- clip resolving --------------------------- */
+let jsonpId = 0;
+function jsonp(url, cbParam){
+  return new Promise((res,rej)=>{
+    const cb="__mqjp"+(++jsonpId);
+    const s=document.createElement("script");
+    const t=setTimeout(()=>{ cleanup(); rej(new Error("timeout")); },9000);
+    function cleanup(){ try{ delete window[cb]; }catch(e){ window[cb]=undefined; } s.remove(); }
+    window[cb]=d=>{ clearTimeout(t); cleanup(); res(d); };
+    s.onerror=()=>{ clearTimeout(t); cleanup(); rej(new Error("network")); };
+    s.src = url + (url.indexOf("?")<0?"?":"&") + cbParam + "=" + cb;
+    document.head.appendChild(s);
+  });
+}
+const norm = s => String(s||"").toLowerCase()
+  .replace(/\(.*?\)|\[.*?\]/g," ").replace(/&/g," and ")
+  .replace(/[^a-z0-9\s]/g," ").replace(/\s+/g," ").trim();
+
+function matchScore(song, gotTitle, gotArtist){
+  const t=norm(song.title), a=norm(song.artist), gt=norm(gotTitle), ga=norm(gotArtist);
+  let sc=0;
+  if(gt===t) sc+=6; else if(gt.indexOf(t)>=0||t.indexOf(gt)>=0) sc+=4;
+  else { const w=t.split(" ").filter(x=>x.length>2), hit=w.filter(x=>gt.indexOf(x)>=0).length;
+         if(w.length) sc += 3*(hit/w.length); }
+  if(ga===a) sc+=5; else if(ga.indexOf(a)>=0||a.indexOf(ga)>=0) sc+=3.5;
+  else { const w=a.split(" ").filter(x=>x.length>2), hit=w.filter(x=>ga.indexOf(x)>=0).length;
+         if(w.length) sc += 2.5*(hit/w.length); }
+  return sc;
+}
+async function viaItunes(song){
+  const q=encodeURIComponent(song.artist+" "+song.title);
+  const d=await jsonp("https://itunes.apple.com/search?term="+q+"&entity=song&limit=12","callback");
+  const rs=(d&&d.results||[]).filter(r=>r.previewUrl);
+  if(!rs.length) throw new Error("no result");
+  let best=null,bs=-1;
+  rs.forEach(r=>{ const s=matchScore(song,r.trackName,r.artistName); if(s>bs){bs=s;best=r;} });
+  if(bs<4.5) throw new Error("weak match");
+  return { url:best.previewUrl, art:(best.artworkUrl100||"").replace("100x100","300x300"), src:"iTunes" };
+}
+async function viaDeezer(song){
+  const q=encodeURIComponent('artist:"'+song.artist+'" track:"'+song.title+'"');
+  let d;
+  try{ d=await jsonp("https://api.deezer.com/search?output=jsonp&q="+q,"callback"); }catch(e){ d=null; }
+  let rs=(d&&d.data||[]).filter(r=>r.preview);
+  if(!rs.length){
+    d=await jsonp("https://api.deezer.com/search?output=jsonp&q="+encodeURIComponent(song.artist+" "+song.title),"callback");
+    rs=(d&&d.data||[]).filter(r=>r.preview);
+  }
+  if(!rs.length) throw new Error("no result");
+  let best=null,bs=-1;
+  rs.forEach(r=>{ const s=matchScore(song,r.title,(r.artist&&r.artist.name)||""); if(s>bs){bs=s;best=r;} });
+  if(bs<4.5) throw new Error("weak match");
+  return { url:best.preview, art:(best.album&&(best.album.cover_medium||best.album.cover))||"", src:"Deezer" };
+}
+async function resolve(song){
+  if(song.url) return { url:song.url, art:song.art||"", src:"File" };
+  const k=keyOf(song);
+  if(clipCache[k]&&clipCache[k].url) return clipCache[k];
+  let err;
+  for(const fn of [viaItunes, viaDeezer]){
+    try{ const r=await fn(song); clipCache[k]=r; return r; }catch(e){ err=e; }
+  }
+  throw err||new Error("not found");
+}
+
+/* --------------------------------- game -------------------------------- */
+const game = { active:false, list:[], i:0, cur:null, replays:0, played:false,
+               revealed:false, scores:[], log:[], hintsTaken:[] };
+let tickTimer=null, stopTimer=null;
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+$("#start").onclick = startRound;
+$("#againbtn").onclick = ()=>{ show("setup"); startRound(); };
+$("#backbtn").onclick = ()=>show("setup");
+
+function orderedPool(){
+  const p=pool();
+  if(String(settings.norepeat)!=="1") return shuffle(p);
+  return shuffle(p.filter(s=>history.indexOf(keyOf(s))<0))
+    .concat(shuffle(p.filter(s=>history.indexOf(keyOf(s))>=0)));
+}
+async function startRound(){
+  const p=orderedPool(), want=Math.min(settings.songs,p.length);
+  if(!want) return;
+  $("#prep").classList.remove("hidden");
+  $("#prepwarn").classList.add("hidden");
+  $("#start").disabled=true;
+  setMarquee("Loading clips ···");
+
+  const picked=[], failed=[]; let idx=0;
+  async function worker(){
+    while(picked.length<want && idx<p.length){
+      const song=p[idx++];
+      try{ const r=await resolve(song); picked.push(Object.assign({},song,r)); }
+      catch(e){ failed.push(song.artist+" – "+song.title); }
+      const done=Math.min(picked.length,want);
+      $("#prepbar").style.width=(100*done/want)+"%";
+      $("#preptext").textContent=`Loading clips… ${done} / ${want}`;
+    }
+  }
+  await Promise.all([worker(),worker(),worker()]);
+  LS.set("clipcache", clipCache);
+
+  $("#prep").classList.add("hidden");
+  $("#prepbar").style.width="0%";
+  $("#start").disabled=false;
+
+  if(!picked.length){
+    $("#prepwarn").classList.remove("hidden");
+    $("#prepwarn").innerHTML="No clips came back. Check you are online, then try <b>Sound check</b>. You can also use your own audio files from the Playlists tab.";
+    renderReady(); return;
+  }
+  if(failed.length){
+    $("#prepwarn").classList.remove("hidden");
+    $("#prepwarn").innerHTML=`Skipped ${failed.length} track${failed.length===1?"":"s"} with no clip: ${esc(failed.slice(0,4).join(", "))}${failed.length>4?" …":""}`;
+  }
+  game.active=true; game.list=picked.slice(0,want); game.i=0; game.log=[];
+  game.scores = players.map(p=>({name:p.name,pts:0,title:0,artist:0,year:0,origin:0,spent:0}));
+  show("play"); loadSong();
+}
+
+function loadSong(){
+  const s=game.list[game.i];
+  game.cur=s; game.replays=0; game.played=false; game.revealed=false;
+  game.hintsTaken=[]; pendingHint=null;
+  $("#hintlist").innerHTML=""; $("#hintpay").classList.add("hidden");
+  $("#counter").textContent=`Track ${game.i+1} / ${game.list.length}`;
+  $("#revealcard").classList.add("hidden");
+  $("#bigtime").textContent="--.-";
+  $("#timecap").textContent="Ready";
+  $("#tbar").style.width="0%";
+  $("#playbtn").disabled=false; $("#playbtn").textContent="▶ Play clip";
+  $("#revealbtn").disabled=false;
+  $("#replaybtn").classList.add("hidden");
+  au.src=s.url;
+  const isNew = history.indexOf(keyOf(s))<0;
+  setMarquee(`Track ${game.i+1} of ${game.list.length} ··· ${isNew?"never played here before":"played before"} ··· ? ? ? ···`);
+  refreshHintZone(); renderLive();
+}
+function clipStart(){
+  const dur = isFinite(au.duration)&&au.duration>1 ? au.duration : 30;
+  const len = Math.min(settings.clip,dur);
+  if(settings.start==="random") return Math.max(0, Math.random()*(dur-len));
+  const off=parseFloat(settings.start)||0;
+  return Math.min(off, Math.max(0,dur-len));
+}
+function playClip(){
+  clearTimers();
+  const len=+settings.clip;
+  const go=()=>{
+    try{ au.currentTime=clipStart(); }catch(e){}
+    au.play().catch(()=>{});
+    vis.active=true;
+    $("#timecap").textContent="Playing";
+    const t0=Date.now();
+    tickTimer=setInterval(()=>{
+      const el=(Date.now()-t0)/1000, left=Math.max(0,len-el);
+      $("#bigtime").textContent=left.toFixed(1);
+      $("#tbar").style.width=Math.min(100,100*el/len)+"%";
+    },80);
+    stopTimer=setTimeout(stopClip,len*1000);
+  };
+  if(au.readyState>=1) go();
+  else { au.addEventListener("loadedmetadata",go,{once:true}); au.load(); }
+  game.played=true;
+  $("#playbtn").disabled=true; $("#playbtn").textContent="Playing…";
+  refreshHintZone();
+}
+function stopClip(){
+  clearTimers();
+  try{ au.pause(); }catch(e){}
+  vis.active=false;
+  $("#bigtime").textContent="0.0";
+  $("#timecap").textContent="Stopped";
+  $("#tbar").style.width="100%";
+  $("#playbtn").disabled=true; $("#playbtn").textContent="Played";
+  if(game.replays < parseInt(settings.replays,10) && !game.revealed)
+    $("#replaybtn").classList.remove("hidden");
+}
+function clearTimers(){ if(tickTimer)clearInterval(tickTimer); if(stopTimer)clearTimeout(stopTimer); tickTimer=stopTimer=null; }
+
+$("#playbtn").onclick = playClip;
+$("#replaybtn").onclick = ()=>{ game.replays++; $("#replaybtn").classList.add("hidden"); playClip(); };
+$("#skipbtn").onclick = ()=>{ stopClip(); game.list.splice(game.i,1); if(game.i>=game.list.length) finishRound(); else loadSong(); };
+$("#quitbtn").onclick = ()=>{ if(confirm("End the round here?")) finishRound(); };
+
+/* --------------------------------- hints -------------------------------- */
+const HINT_BY_ARTIST = {};
+Object.keys(ARTIST_HINTS).forEach(k=>{ HINT_BY_ARTIST[norm(k)]=ARTIST_HINTS[k]; });
+function hintText(kind,s){
+  const dec=Math.floor(s.year/10)*10;
+  if(kind==="year") return YEAR_FACTS[s.year] || `Somewhere in the ${dec}s — no fact on file for this exact year.`;
+  if(kind==="artist"){
+    const h=HINT_BY_ARTIST[norm(s.artist)];
+    if(h) return h;
+    const w=s.artist.split(/\s+/).length;
+    return `${s.origin? "An act from "+s.origin : "An act"}, best known in the ${dec}s. The name has ${w} word${w===1?"":"s"} and starts with “${s.artist[0].toUpperCase()}”.`;
+  }
+  if(kind==="origin"){
+    if(!s.origin) return "No country on file for this one.";
+    return `They are from ${REGION[s.origin]||"somewhere in the world"}, and the country starts with “${s.origin[0].toUpperCase()}”.`;
+  }
+  return "";
+}
+const HINT_LABEL={year:"The year",artist:"The artist",origin:"Country"};
+function hintsAllowed(){
+  if(settings.hints==="off") return false;
+  if(settings.hints==="always") return true;
+  return game.played;
+}
+function refreshHintZone(){
+  const z=$("#hintzone");
+  if(!hintsAllowed()||game.revealed){ z.classList.add("hidden"); return; }
+  z.classList.remove("hidden");
+  z.querySelectorAll("[data-h]").forEach(b=>{ b.disabled = game.hintsTaken.indexOf(b.dataset.h)>=0; });
+}
+let pendingHint=null;
+$$("#hintzone [data-h]").forEach(b=>{
+  b.onclick=()=>{
+    pendingHint=b.dataset.h;
+    const c=+settings.hcost||0;
+    $("#hintcost").textContent = c===0 ? "(free)" : c+(c===1?" point":" points");
+    const box=$("#paybtns"); box.innerHTML="";
+    players.forEach((p,i)=>{ const x=document.createElement("button"); x.className="btn tiny";
+      x.textContent=p.name; x.onclick=()=>buyHint([i]); box.appendChild(x); });
+    if(players.length>1){ const a=document.createElement("button"); a.className="btn tiny";
+      a.textContent="Everyone"; a.onclick=()=>buyHint(players.map((_,i)=>i)); box.appendChild(a); }
+    const n=document.createElement("button"); n.className="btn tiny"; n.textContent="Cancel";
+    n.onclick=()=>{ pendingHint=null; $("#hintpay").classList.add("hidden"); };
+    box.appendChild(n);
+    $("#hintpay").classList.remove("hidden");
+  };
+});
+function buyHint(idxs){
+  if(!pendingHint) return;
+  const kind=pendingHint; pendingHint=null;
+  const c=+settings.hcost||0;
+  idxs.forEach(i=>{ if(game.scores[i]){ game.scores[i].pts-=c; game.scores[i].spent+=c; } });
+  game.hintsTaken.push(kind);
+  const who=(idxs.length===players.length&&players.length>1) ? "everyone" : idxs.map(i=>players[i].name).join(", ");
+  const d=document.createElement("div"); d.className="hintline";
+  d.innerHTML=`<b>${HINT_LABEL[kind]}${c? " · −"+c+" for "+esc(who):""}</b>${esc(hintText(kind,game.cur))}`;
+  $("#hintlist").appendChild(d);
+  $("#hintpay").classList.add("hidden");
+  refreshHintZone(); renderLive();
+}
+
+/* -------------------------------- reveal -------------------------------- */
+function acceptedYears(y){
+  const m=String(settings.yearmode);
+  if(m==="exact") return {label:String(y)};
+  if(m==="decade"){ const d=Math.floor(y/10)*10; return {label:d+"s"}; }
+  const n=parseInt(m,10)||0;
+  return {label:(y-n)+"–"+(y+n)};
+}
+$("#revealbtn").onclick = reveal;
+function reveal(){
+  if(game.revealed) return;
+  stopClip(); game.revealed=true;
+  const s=game.cur;
+  $("#rtitle").textContent=s.title;
+  $("#rartist").textContent=s.artist;
+  $("#rmeta").textContent = s.year + (s.origin? " · "+s.origin:"") + (s.from? " · "+s.from:"");
+  const pill=$("#acceptpill");
+  if(settings.cats.year){ pill.style.display=""; pill.textContent="Accept year: "+acceptedYears(s.year).label; }
+  else pill.style.display="none";
+  const art=$("#art");
+  if(s.art){ art.src=s.art; art.style.display=""; } else { art.removeAttribute("src"); art.style.display="none"; }
+  $("#revealbtn").disabled=true;
+  $("#replaybtn").classList.add("hidden");
+  $("#hintzone").classList.add("hidden");
+  setMarquee(`${s.artist} — ${s.title} (${s.year})`);
+  renderTicks();
+  $("#revealcard").classList.remove("hidden");
+  $("#revealcard").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+let pending=[];
+function liveCats(){
+  const hasOrigin = !!(game.cur && game.cur.origin);
+  return activeCats().filter(k=> k!=="origin" || hasOrigin);
+}
+function renderTicks(){
+  pending = players.map(()=>({title:false,artist:false,year:false,origin:false}));
+  const shown = activeCats(), live = liveCats();
+  const head = shown.map(k=>{
+    const c=CATS.find(x=>x.k===k);
+    return `<th>${esc(c.nm)}<br><span style="color:var(--dim2)">${settings[c.p]}p</span></th>`;
+  }).join("");
+  const t=$("#sctable");
+  t.innerHTML=`<thead><tr><th>Player</th>${head}<th>All</th><th>+</th></tr></thead><tbody></tbody>`;
+  const tb=t.querySelector("tbody");
+  players.forEach((p,i)=>{
+    const tr=document.createElement("tr");
+    const cells = shown.map(k=> live.indexOf(k)<0
+      ? `<td><span style="color:var(--dim2)">–</span></td>`
+      : `<td><button class="tick" data-k="${k}">✓</button></td>`).join("");
+    tr.innerHTML=`<td><span class="pname"><span class="dot" style="background:${COLORS[i%COLORS.length]}"></span>${esc(p.name)}</span></td>
+      ${cells}<td><button class="btn tiny" data-all="1">all</button></td><td><span class="rowtot">0</span></td>`;
+    tr.querySelectorAll(".tick").forEach(b=>{
+      b.onclick=()=>{ const k=b.dataset.k; pending[i][k]=!pending[i][k]; b.classList.toggle("on",pending[i][k]); updRow(tr,i); };
+    });
+    tr.querySelector("[data-all]").onclick=()=>{
+      const on = !live.every(k=>pending[i][k]);
+      live.forEach(k=>pending[i][k]=on);
+      tr.querySelectorAll(".tick").forEach(b=>b.classList.toggle("on",on));
+      updRow(tr,i);
+    };
+    tb.appendChild(tr);
+  });
+}
+function rowPts(p){
+  const live=liveCats();
+  let n=0;
+  live.forEach(k=>{ if(p[k]) n += +settings[CATS.find(c=>c.k===k).p]; });
+  if(live.length && live.every(k=>p[k])) n += +settings.pbonus;
+  return n;
+}
+function updRow(tr,i){ tr.querySelector(".rowtot").textContent = rowPts(pending[i]); }
+
+$("#nextbtn").onclick = ()=>{
+  players.forEach((p,i)=>{
+    const g=pending[i]||{};
+    game.scores[i].pts += rowPts(g);
+    ["title","artist","year","origin"].forEach(k=>{ if(g[k]) game.scores[i][k]++; });
+  });
+  game.log.push({song:game.cur, marks:deepCopy(pending)});
+  game.i++;
+  if(game.i>=game.list.length) finishRound(); else loadSong();
+};
+
+function renderLive(){
+  const box=$("#livelb"); box.innerHTML="";
+  game.scores.map((s,i)=>({s,i})).sort((a,b)=>b.s.pts-a.s.pts).forEach((o,rank)=>{
+    const d=document.createElement("div");
+    d.className="e"+(rank===0&&o.s.pts>0?" first":"");
+    d.innerHTML=`<span class="rank">${rank+1}</span>
+      <span class="dot" style="background:${COLORS[o.i%COLORS.length]}"></span>
+      <span><b>${esc(o.s.name)}</b>${o.s.spent?` <span class="spend">−${o.s.spent} hints</span>`:""}</span>
+      <span class="pts">${o.s.pts}</span>`;
+    box.appendChild(d);
+  });
+}
+
+function finishRound(){
+  stopClip(); game.active=false;
+  const played=game.log.length;
+  game.log.forEach(e=>{ const k=keyOf(e.song); if(history.indexOf(k)<0) history.push(k); });
+  if(history.length>400) history=history.slice(-400);
+  LS.set("history",history);
+
+  const sorted=game.scores.slice().sort((a,b)=>b.pts-a.pts);
+  $("#resulthead").textContent = players.length===1 ? "Round over" : (sorted[0]? sorted[0].name+" wins" : "Round over");
+  $("#resultsub").textContent = `${played} song${played===1?"":"s"} · ${selected.map(id=>(plById(id)||{}).name).filter(Boolean).join(", ")}`;
+  setMarquee("Round over ··· "+sorted.map(s=>s.name+" "+s.pts).join(" ··· ")+" ···");
+
+  const box=$("#resultlb"); box.innerHTML="";
+  sorted.forEach((s,rank)=>{
+    const idx=game.scores.indexOf(s);
+    const bits = activeCats().map(k=>`${s[k]} ${CATS.find(c=>c.k===k).nm.toLowerCase()}`);
+    const d=document.createElement("div"); d.className="e"+(rank===0?" first":"");
+    d.innerHTML=`<span class="rank">${rank+1}</span><span class="dot" style="background:${COLORS[idx%COLORS.length]}"></span>
+      <span><b>${esc(s.name)}</b><br><small>${bits.join(" · ")}${s.spent?` · <span class="spend">−${s.spent} on hints</span>`:""}</small></span>
+      <span class="pts">${s.pts}</span>`;
+    box.appendChild(d);
+  });
+  $("#songlog").innerHTML=`<thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Year</th></tr></thead><tbody>`+
+    game.log.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.song.title)}</td><td>${esc(e.song.artist)}</td><td>${e.song.year}</td></tr>`).join("")+`</tbody>`;
+
+  if(played>0){
+    highscores.unshift({ when:Date.now(), songs:played,
+      lists:selected.map(id=>(plById(id)||{}).name).filter(Boolean),
+      rule:yearRuleLabel(), cats:activeCats(),
+      players:game.scores.map(s=>({name:s.name,pts:s.pts,spent:s.spent})) });
+    highscores=highscores.slice(0,80);
+    LS.set("highscores",highscores);
+    $("#savedmsg").textContent = storageOK ? "Saved to highscores" : "Storage blocked — export a backup from Options";
+  } else $("#savedmsg").textContent="";
+  show("result");
+}
+
+document.addEventListener("keydown", e=>{
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  if($("#v-play").classList.contains("hidden")) return;
+  if(e.code==="Space"){ e.preventDefault();
+    if(!$("#playbtn").disabled) playClip();
+    else if(!$("#replaybtn").classList.contains("hidden")) $("#replaybtn").click(); }
+  else if(e.key==="r"||e.key==="R"){ e.preventDefault(); reveal(); }
+  else if(e.key==="n"||e.key==="N"){ if(game.revealed){ e.preventDefault(); $("#nextbtn").click(); } }
+});
+
+/* ------------------------------ highscores ----------------------------- */
+function renderScores(){
+  const best=[];
+  highscores.forEach(h=>h.players.forEach(p=>{
+    if(h.songs>0) best.push({name:p.name, per:p.pts/h.songs, pts:p.pts, songs:h.songs, lists:h.lists});
+  }));
+  best.sort((a,b)=>b.per-a.per);
+  const bb=$("#hsbest"); bb.innerHTML="";
+  if(!best.length) bb.innerHTML=`<div class="hint">No rounds played yet.</div>`;
+  best.slice(0,10).forEach((b,i)=>{
+    const d=document.createElement("div"); d.className="e"+(i===0?" first":"");
+    d.innerHTML=`<span class="rank">${i+1}</span>
+      <span><b>${esc(b.name)}</b><br><small>${b.pts} pts over ${b.songs} songs · ${esc((b.lists||[]).join(", "))}</small></span>
+      <span class="pts">${b.per.toFixed(2)}</span>`;
+    bb.appendChild(d);
+  });
+  $("#hstable").innerHTML = !highscores.length ? "" :
+    `<thead><tr><th>Date</th><th>Stages</th><th>Songs</th><th>Guessed</th><th>Result</th></tr></thead><tbody>`+
+    highscores.map(h=>{
+      const ps=h.players.slice().sort((a,b)=>b.pts-a.pts).map(p=>esc(p.name)+" "+p.pts).join(" · ");
+      return `<tr><td>${new Date(h.when).toLocaleDateString()}</td><td>${esc((h.lists||[]).join(", "))}</td>
+        <td>${h.songs}</td><td>${esc((h.cats||["title","artist","year"]).join(", "))}</td><td>${ps}</td></tr>`;
+    }).join("")+`</tbody>`;
+  $("#hsmsg").textContent = storageOK ? "" : "Local storage is blocked in this browser — use Export / Import to keep scores.";
+}
+$("#clearhs").onclick=()=>{ if(confirm("Delete all highscores?")){ highscores=[]; LS.set("highscores",[]); renderScores(); } };
+$("#exporths").onclick=()=>download("musikkquiz-highscores.json", JSON.stringify(highscores,null,2));
+$("#imporths").onclick=()=>pickJSON(d=>{
+  if(!Array.isArray(d)) throw new Error("not a highscore file");
+  const seen=new Set(highscores.map(h=>h.when)); let n=0;
+  d.forEach(h=>{ if(h&&h.players&&!seen.has(h.when)){ highscores.push(h); n++; } });
+  highscores.sort((a,b)=>b.when-a.when); highscores=highscores.slice(0,80);
+  LS.set("highscores",highscores); renderScores();
+  $("#hsmsg").textContent=`Merged ${n} rounds`;
+});
+function download(name,text){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([text],{type:"application/json"}));
+  a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+function pickJSON(fn){
+  const inp=document.createElement("input"); inp.type="file"; inp.accept=".json,application/json";
+  inp.onchange=()=>{ const f=inp.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{ try{ fn(JSON.parse(r.result)); }catch(e){ alert("Couldn't read that file: "+(e.message||"bad JSON")); } };
+    r.readAsText(f); };
+  inp.click();
+}
+$("#exportall").onclick=()=>{
+  download("musikkquiz-backup.json", JSON.stringify({
+    kind:"musikkquiz", version:4, exported:new Date().toISOString(),
+    settings, playlists, players, selected, highscores, history },null,2));
+  $("#datamsg").textContent="Backup downloaded";
+};
+$("#importall").onclick=()=>pickJSON(d=>{
+  if(!d||d.kind!=="musikkquiz") throw new Error("not a Musikkquiz backup");
+  if(!confirm("Replace options, playlists and players with the backup? Highscores are merged, not replaced.")) return;
+  if(d.settings){ settings=Object.assign({},deepCopy(DEFAULTS),d.settings);
+    settings.cats=Object.assign({},DEFAULTS.cats,d.settings.cats||{}); saveS(); }
+  if(Array.isArray(d.playlists)&&d.playlists.length){ playlists=d.playlists; LS.set("playlists",playlists); }
+  if(Array.isArray(d.players)&&d.players.length){ players=d.players; LS.set("players",players); }
+  if(Array.isArray(d.selected)){ selected=d.selected; LS.set("selected",selected); }
+  if(Array.isArray(d.history)){ history=d.history; LS.set("history",history); }
+  if(Array.isArray(d.highscores)){
+    const seen=new Set(highscores.map(h=>h.when));
+    d.highscores.forEach(h=>{ if(h&&h.players&&!seen.has(h.when)) highscores.push(h); });
+    highscores.sort((a,b)=>b.when-a.when); highscores=highscores.slice(0,80);
+    LS.set("highscores",highscores);
+  }
+  renderPicker(); renderPlayers(); renderQuick(); renderOptions(); renderReady(); renderPlEditor();
+  $("#datamsg").textContent="Backup restored";
+});
+$("#clearcache").onclick=()=>{ clipCache={}; LS.set("clipcache",{}); $("#datamsg").textContent="Clip cache cleared"; };
+
+/* --------------------------- playlist editor --------------------------- */
+let editing=null;
+function renderPlEditor(){
+  const sel=$("#pledit"); sel.innerHTML="";
+  playlists.forEach(p=>{ const o=document.createElement("option"); o.value=p.id; o.textContent=(p.emoji||"")+" "+p.name; sel.appendChild(o); });
+  if(!editing||!playlists.some(p=>p.id===editing)) editing = playlists[0]&&playlists[0].id;
+  sel.value=editing||"";
+  loadPlForm();
+}
+function loadPlForm(){
+  const p=playlists.find(x=>x.id===editing);
+  if(!p){ $("#plname").value=""; $("#plemoji").value=""; $("#plsongs").value=""; return; }
+  $("#plname").value=p.name; $("#plemoji").value=p.emoji||"";
+  $("#plsongs").value=p.songs.map(s=>{
+    const a=Array.isArray(s)?s:[s.title,s.artist,s.year,s.origin];
+    return a[0]+" ; "+a[1]+" ; "+a[2]+(a[3]? " ; "+a[3]:"");
+  }).join("\n");
+}
+$("#pledit").onchange=e=>{ editing=e.target.value; loadPlForm(); };
+$("#newpl").onclick=()=>{
+  const id="pl"+Date.now().toString(36);
+  playlists.push({id,name:"New playlist",emoji:"🎵",songs:[]});
+  editing=id; LS.set("playlists",playlists); renderPlEditor(); renderPicker();
+};
+$("#savepl").onclick=()=>{
+  const p=playlists.find(x=>x.id===editing); if(!p) return;
+  p.name=$("#plname").value.trim()||"Untitled";
+  p.emoji=$("#plemoji").value.trim()||"🎵";
+  const bad=[];
+  p.songs=$("#plsongs").value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>{
+    const parts=l.split(/\s*(?:;|\||—|–|\t)\s*/).filter(x=>x!=="");
+    if(parts.length<3){ bad.push(l); return null; }
+    const y=parseInt(parts[2],10);
+    if(!y||y<1900||y>2100){ bad.push(l); return null; }
+    return parts[3]? [parts[0],parts[1],y,parts[3]] : [parts[0],parts[1],y];
+  }).filter(Boolean);
+  LS.set("playlists",playlists);
+  $("#plmsg").textContent=`Saved ${p.songs.length} songs`+(bad.length?` · ${bad.length} line(s) skipped`:"");
+  setTimeout(()=>$("#plmsg").textContent="",5000);
+  renderPlEditor(); renderPicker(); renderReady();
+};
+$("#delpl").onclick=()=>{
+  const p=playlists.find(x=>x.id===editing); if(!p) return;
+  if(!confirm("Delete “"+p.name+"”?")) return;
+  playlists=playlists.filter(x=>x.id!==editing);
+  selected=selected.filter(id=>id!==editing);
+  editing=null; LS.set("playlists",playlists); LS.set("selected",selected);
+  renderPlEditor(); renderPicker(); renderReady();
+};
+$("#resetpl").onclick=()=>{
+  if(!confirm("Replace all playlists with the built-in ones?")) return;
+  playlists=deepCopy(BUILTIN); editing=null;
+  LS.set("playlists",playlists); renderPlEditor(); renderPicker(); renderReady();
+};
+$("#exportpl").onclick=()=>download("musikkquiz-playlists.json", JSON.stringify(playlists,null,2));
+$("#importpl").onclick=()=>pickJSON(d=>{
+  if(!Array.isArray(d)) throw new Error("not a playlist export");
+  d.forEach(p=>{
+    if(!p.name||!Array.isArray(p.songs)) return;
+    const id = p.id && !playlists.some(x=>x.id===p.id) ? p.id : "pl"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    playlists.push({id,name:p.name,emoji:p.emoji||"🎵",songs:p.songs});
+  });
+  LS.set("playlists",playlists); renderPlEditor(); renderPicker(); renderReady();
+  $("#plmsg").textContent="Imported";
+});
+
+/* ---------------------------- fetch & import --------------------------- */
+function cleanLine(t){
+  return String(t)
+    .replace(/\((?:[^)]*(?:official|video|audio|lyric|visual|hd|4k|remaster|version|mv|full|live)[^)]*)\)/ig," ")
+    .replace(/\[(?:[^\]]*(?:official|video|audio|lyric|visual|hd|4k|remaster|version|mv|full|live)[^\]]*)\]/ig," ")
+    .replace(/\|[^|]*$/,"").replace(/\s*[-–]\s*topic\s*$/i,"")
+    .replace(/^\s*\d{1,3}\s*[.)]\s*/,"")
+    .replace(/["“”]/g,"").replace(/\s+/g," ").trim();
+}
+function earliestYear(rs,best){
+  let y=0;
+  rs.filter(r=>norm(r.trackName)===norm(best.trackName)&&norm(r.artistName)===norm(best.artistName))
+    .concat([best]).forEach(r=>{
+      const n=parseInt(String(r.releaseDate||"").slice(0,4),10);
+      if(n&&(!y||n<y)) y=n;
+    });
+  return y;
+}
+async function lookupItunes(q){
+  const term=encodeURIComponent(q.artist? (q.artist+" "+q.title) : q.title);
+  const d=await jsonp("https://itunes.apple.com/search?term="+term+"&entity=song&limit=15","callback");
+  const rs=(d&&d.results||[]).filter(r=>r.previewUrl);
+  if(!rs.length) throw new Error("nothing found");
+  let best=rs[0];
+  if(q.artist){ let bs=-1; rs.forEach(r=>{ const s=matchScore({title:q.title,artist:q.artist},r.trackName,r.artistName); if(s>bs){bs=s;best=r;} }); }
+  return { title:best.trackName, artist:best.artistName, year:earliestYear(rs,best),
+           url:best.previewUrl, art:(best.artworkUrl100||"").replace("100x100","300x300"), via:"iTunes" };
+}
+async function lookupDeezer(q){
+  const term = q.artist ? (q.artist+" "+q.title) : q.title;
+  const d=await jsonp("https://api.deezer.com/search?output=jsonp&q="+encodeURIComponent(term),"callback");
+  const rs=(d&&d.data||[]).filter(r=>r.preview);
+  if(!rs.length) throw new Error("nothing found");
+  let best=rs[0];
+  if(q.artist){ let bs=-1; rs.forEach(r=>{ const s=matchScore({title:q.title,artist:q.artist},r.title,(r.artist&&r.artist.name)||""); if(s>bs){bs=s;best=r;} }); }
+  return { title:best.title, artist:(best.artist&&best.artist.name)||q.artist||"", year:0,
+           url:best.preview, art:(best.album&&(best.album.cover_medium||best.album.cover))||"", via:"Deezer" };
+}
+async function lookup(q){
+  try{ return await lookupItunes(q); }
+  catch(e){ return await lookupDeezer(q); }   /* Deezer has the clip but no reliable year */
+}
+
+let impRows=[];
+function impReset(){ impRows=[]; $("#imptable").innerHTML=""; $("#impbar").style.width="0%"; $("#impwrap").classList.remove("hidden"); }
+function impHead(){
+  const t=$("#imptable");
+  t.innerHTML=`<thead><tr><th></th><th>Title</th><th>Artist</th><th>Year</th><th>Country</th><th>Found via</th></tr></thead><tbody></tbody>`;
+  return t.querySelector("tbody");
+}
+function impFinish(msg){
+  $("#impcount").textContent=msg;
+  const dest=$("#impdest"); dest.innerHTML="";
+  const o=document.createElement("option"); o.value="__new"; o.textContent="→ New playlist"; dest.appendChild(o);
+  playlists.forEach(p=>{ const x=document.createElement("option"); x.value=p.id; x.textContent="→ "+p.name; dest.appendChild(x); });
+  $("#impwrap").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+function addImpRow(tb,row){
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td><input type="checkbox" ${row.ok&&row.year?"checked":""}></td>
+    <td><input type="text" value="${esc(row.title||"")}"></td>
+    <td><input type="text" value="${esc(row.artist||"")}"></td>
+    <td><input type="text" value="${row.year||""}" style="width:64px" placeholder="year"></td>
+    <td><input type="text" value="${esc(row.origin||"")}" placeholder="optional"></td>
+    <td><small style="color:var(--dim2)">${esc(row.via||(row.ok?"":"not found"))}</small></td>`;
+  const ins=tr.querySelectorAll("input");
+  ins[0].onchange=()=>row.use=ins[0].checked;
+  ins[1].oninput=()=>row.title=ins[1].value;
+  ins[2].oninput=()=>row.artist=ins[2].value;
+  ins[3].oninput=()=>row.year=parseInt(ins[3].value,10)||0;
+  ins[4].oninput=()=>row.origin=ins[4].value;
+  row.use=ins[0].checked;
+  if(!row.year) tr.style.opacity=".62";
+  tb.appendChild(tr);
+}
+$("#impgo").onclick = async ()=>{
+  const raw=$("#imp").value.trim();
+  if(!raw){ $("#impmsg").textContent="Nothing to import."; return; }
+  if(/youtube\.com|youtu\.be/i.test(raw)){
+    alert("Paste the song names, not the link — YouTube won't hand over a playlist without a developer key.\n\nOpen “How to get the list out of a YouTube playlist” just below the box; it gives you a one-line snippet that copies every title from the playlist page.");
+    return;
+  }
+  $("#impgo").disabled=true; $("#impmsg").textContent="Working…";
+  const cands = raw.split(/\r?\n/).map(l=>cleanLine(l)).filter(Boolean).map(l=>{
+    const p=l.split(/\s+[-–—]\s+|\s*[;|\t]\s*/);
+    return p.length>1 ? {artist:p[0].trim(), title:p.slice(1).join(" - ").trim()} : {artist:"", title:l};
+  }).slice(0,150);
+
+  impReset(); const tb=impHead();
+  let ci=0, done=0;
+  async function worker(){
+    while(ci<cands.length){
+      const q=cands[ci++]; let row;
+      try{ row=Object.assign({ok:true}, await lookup(q)); }
+      catch(e){ row={ok:false, title:q.title, artist:q.artist, year:0}; }
+      impRows.push(row); addImpRow(tb,row);
+      done++; $("#impbar").style.width=(100*done/cands.length)+"%";
+      $("#impmsg").textContent=`Looked up ${done} / ${cands.length}`;
+    }
+  }
+  await Promise.all([worker(),worker(),worker()]);
+  $("#impgo").disabled=false; $("#impmsg").textContent="";
+  const good=impRows.filter(r=>r.ok&&r.year).length;
+  impFinish(`${good} of ${impRows.length} ready — check the years`);
+};
+$("#fqgo").onclick = async ()=>{
+  const term=$("#fqterm").value.trim();
+  if(!term){ $("#fqmsg").textContent="Type something to search for."; return; }
+  const from=parseInt($("#fqfrom").value,10)||1900, to=parseInt($("#fqto").value,10)||2100;
+  $("#fqgo").disabled=true; $("#fqmsg").textContent="Fetching…";
+  let rs;
+  try{
+    const d=await jsonp("https://itunes.apple.com/search?term="+encodeURIComponent(term)+"&entity=song&limit=200","callback");
+    rs=(d&&d.results||[]).filter(r=>r.previewUrl);
+  }catch(e){ $("#fqgo").disabled=false; $("#fqmsg").textContent=""; alert("Couldn't reach the music catalogue. Check you are online."); return; }
+  const have=new Set();
+  allPlaylists().forEach(p=>p.songs.forEach(s=>{
+    const a=Array.isArray(s)?s:[s.title,s.artist];
+    have.add(norm(a[1])+"::"+norm(a[0]));
+  }));
+  const seen=new Set(), out=[];
+  rs.forEach(r=>{
+    const y=parseInt(String(r.releaseDate||"").slice(0,4),10);
+    if(!y||y<from||y>to) return;
+    const k=norm(r.artistName)+"::"+norm(r.trackName);
+    if(seen.has(k)||have.has(k)) return;
+    seen.add(k);
+    out.push({ ok:true, title:r.trackName, artist:r.artistName, year:earliestYear(rs,r),
+      url:r.previewUrl, art:(r.artworkUrl100||"").replace("100x100","300x300"), via:"catalogue" });
+  });
+  $("#fqgo").disabled=false;
+  if(!out.length){ $("#fqmsg").textContent=`Nothing new for “${term}” in ${from}–${to}.`; return; }
+  $("#fqmsg").textContent=`${out.length} new tracks`;
+  impReset(); const tb=impHead();
+  out.slice(0,120).forEach(r=>{ impRows.push(r); addImpRow(tb,r); });
+  $("#impbar").style.width="100%";
+  impFinish(`${impRows.length} new tracks — uncheck what you don't want`);
+};
+$("#impcancel").onclick=()=>{ $("#impwrap").classList.add("hidden"); impRows=[]; $("#impmsg").textContent=""; $("#fqmsg").textContent=""; };
+$("#impadd").onclick=()=>{
+  const rows=impRows.filter(r=>r.use&&r.title&&r.artist&&r.year);
+  if(!rows.length){ alert("Nothing checked that has a title, artist and year."); return; }
+  let target;
+  if($("#impdest").value==="__new"){
+    target={id:"pl"+Date.now().toString(36), name:"Imported", emoji:"📥", songs:[]};
+    playlists.push(target);
+  } else target=playlists.find(p=>p.id===$("#impdest").value);
+  if(!target) return;
+  rows.forEach(r=>{
+    target.songs.push(r.origin? [r.title,r.artist,r.year,r.origin] : [r.title,r.artist,r.year]);
+    if(r.url) clipCache[norm(r.artist)+"::"+norm(r.title)]={url:r.url,art:r.art||"",src:r.via||"iTunes"};
+  });
+  LS.set("playlists",playlists); LS.set("clipcache",clipCache);
+  editing=target.id;
+  $("#impwrap").classList.add("hidden"); impRows=[]; $("#imp").value="";
+  $("#impmsg").textContent=`Added ${rows.length} to “${target.name}”`;
+  $("#fqmsg").textContent="";
+  renderPlEditor(); renderPicker(); renderReady();
+};
+
+/* ------------------------------ local files ---------------------------- */
+$("#filepick").onchange = e=>{
+  const files=Array.from(e.target.files||[]);
+  if(!files.length) return;
+  const songs=files.map(f=>{
+    const base=f.name.replace(/\.[a-z0-9]+$/i,"");
+    let year=null, rest=base;
+    let m=base.match(/^\s*(19\d{2}|20\d{2})\s*[-–—_]\s*(.*)$/);
+    if(m){ year=+m[1]; rest=m[2]; }
+    else { m=base.match(/^(.*)[\(\[\s]\s*(19\d{2}|20\d{2})\s*[\)\]]?\s*$/); if(m){ rest=m[1]; year=+m[2]; } }
+    const parts=rest.split(/\s+[-–—]\s+/);
+    return { title:(parts.length>1? parts.slice(1).join(" - ") : rest).trim(),
+             artist: parts.length>1 ? parts[0].trim() : "Unknown artist",
+             year: year||0, url:URL.createObjectURL(f) };
+  });
+  const withYear=songs.filter(s=>s.year).length;
+  const id="files"+Date.now().toString(36);
+  filePlaylists.length=0;
+  filePlaylists.push({id,name:"My files",emoji:"📁",local:true,songs});
+  selected=selected.concat(id);
+  $("#filemsg").textContent=`${songs.length} files added · ${withYear} had a readable year`+
+    (withYear<songs.length? " — fix the rest in the editor above." : "");
+  renderPicker(); renderReady();
+};
+
+/* ------------------------------ sound check ---------------------------- */
+$("#testsrc").onclick = async ()=>{
+  $("#testmsg").textContent="Testing…";
+  const probe={title:"Billie Jean", artist:"Michael Jackson"};
+  const out=[]; let playedOne=false;
+  for(const [nm,fn] of [["iTunes",viaItunes],["Deezer",viaDeezer]]){
+    try{
+      const r=await fn(probe); out.push(nm+" ok");
+      if(!playedOne){ playedOne=true; au.src=r.url; try{au.currentTime=0;}catch(e){}
+        au.play().catch(()=>{}); vis.active=true; $("#timecap").textContent="Test";
+        setTimeout(()=>{ au.pause(); vis.active=false; $("#timecap").textContent="Ready"; },2800); }
+    }catch(e){ out.push(nm+" failed"); }
+  }
+  $("#testmsg").textContent = out.join(" · ") + (playedOne? " · you should hear about 3 seconds" : " · no sound available");
+};
+
+/* --------------------------------- boot -------------------------------- */
+renderPicker(); renderPlayers(); renderQuick(); renderReady(); renderPlEditor();
+sizeVis(); drawVis();
+if(!storageOK) $("#nostorage").classList.remove("hidden");
+</script>
+</body>
+</html>
